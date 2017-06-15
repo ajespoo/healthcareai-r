@@ -111,15 +111,17 @@ XGBoostDevelopment <- R6Class("XGBoostDevelopment",
       # R factors are 1 indexed, XGB is 0 indexed, so we must subtract 1 from the labels. They must be numeric.
       temp_train_data <- data.matrix(private$dfTrain[ ,!(colnames(private$dfTrain) == self$params$predictedCol)])
       temp_train_label <- data.matrix(as.numeric(private$dfTrain[[self$params$predictedCol]])) - 1 
+      
       print('temp_train_data')
       print(str(temp_train_data))
-      print('temp_test_data')
-      print(str(temp_test_data))
       self$xgb_trainMatrix <- xgb.DMatrix(data = temp_train_data, label = temp_train_label)
       rm(temp_train_data, temp_train_label) # clean temp variables
 
       temp_test_data <- data.matrix(private$dfTest[ ,!(colnames(private$dfTest) == self$params$predictedCol)])
       temp_test_label <- data.matrix(as.numeric(private$dfTest[[self$params$predictedCol]])) - 1 
+      
+      print('temp_test_data')
+      print(str(temp_test_data))
       self$xgb_testMatrix <- xgb.DMatrix(data = temp_test_data, label = temp_test_label) 
       private$test_label <- temp_test_label # save for confusion matrix and output
       rm(temp_test_data, temp_test_label) # clean temp variables
