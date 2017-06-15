@@ -107,8 +107,12 @@ XGBoostDevelopment <- R6Class("XGBoostDevelopment",
       cat('Preparing data...', '\n')
       # XGB requires data.matrix format, not data.frame.
       # R factors are 1 indexed, XGB is 0 indexed, so we must subtract 1 from the labels. They must be numeric.
-      temp_train_data <- data.matrix(private$dfTrain[ ,!(colnames(private$dfTrain) == self$params$predictedCol)])
+      temp_train_data <- data.matrix(as.numeric(private$dfTrain[ ,!(colnames(private$dfTrain) == self$params$predictedCol)]))
       temp_train_label <- data.matrix(as.numeric(private$dfTrain[[self$params$predictedCol]])) - 1 
+      print('temp_train_data')
+      print(str(temp_train_data))
+      print('temp_test_data')
+      print(str(temp_test_data))
       self$xgb_trainMatrix <- xgb.DMatrix(data = temp_train_data, label = temp_train_label)
       rm(temp_train_data, temp_train_label) # clean temp variables
 
