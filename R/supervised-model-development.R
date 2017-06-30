@@ -20,10 +20,12 @@ SupervisedModelDevelopment <- R6Class("SupervisedModelDevelopment",
     ###########
     # Variables
     dfTrain = NA,
+    dfTrainRaw = NA,
     dfTest = NA,
     dfGrain = NA,
     grainTest = NA,
     prevalence = NA,
+    factorLevels = NA,
 
     clustersOnCores = NA,
     grainColValues = NA,
@@ -229,7 +231,7 @@ SupervisedModelDevelopment <- R6Class("SupervisedModelDevelopment",
       # For rf/lasso, remove grain col (if specified)
       # For LMM, don't remove grain col even if specified--note personCol
       if ((nchar(self$params$grainCol) != 0) & (nchar(self$params$personCol) == 0)) {
-        private$grainColValues <- df[[self$params$grainCol]]
+        private$grainColValues <- self$params$df[[self$params$grainCol]]
         self$params$df[[self$params$grainCol]] <- NULL
       }
 
@@ -270,6 +272,32 @@ SupervisedModelDevelopment <- R6Class("SupervisedModelDevelopment",
       if (isTRUE(self$params$debug)) {
         print('Training data set after removing rows where pred col is null')
         print(str(private$dfTrain))
+      }
+
+      # Get factor levels for dummy creation in deploy. 
+      # TODO replace this part with LIME.
+      private$dfTrainRaw <- private$dfTrain
+      private$dfTrainRaw[[self$params$predictedCol]] <- NULL
+      # remove personcol if it exists for variable importance.
+      if (nchar(self$params$personCol) != 0) {
+        private$dfTrainRaw[[self$params$personCol]] <- NULL
+      }
+
+      # Get factor levels as a private attribute
+      private$factorLevels <- list()
+      for (col in names(private$dfTrainRaw)) {
+        # only keep factor variables other than response variable
+        if ((is.factor(private$dfTrainRaw[, col])) 
+            & (col != self$params$predictedCol)
+            & (col != self$params$personCol)) {
+          # add levels to list
+          private$factorLevels[col] <- list(levels(private$dfTrainRaw[, col]))
+        }
+      }
+
+      if (isTRUE(self$params$debug)) {
+        print('Factor levels for top factor calculation')
+        print(str(private$factorLevels))
       }
     }
   ),

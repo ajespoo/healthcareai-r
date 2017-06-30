@@ -13,7 +13,6 @@
 #' @importFrom R6 R6Class
 #' @import ranger
 #' @import ROCR
-#' @import RODBC
 #' @param object of SuperviseModelParameters class for $new() constructor
 #' @param type The type of model (either 'regression' or 'classification')
 #' @param df Dataframe whose columns are used for calc.
@@ -80,7 +79,6 @@
 #' head(df)
 #'
 #' df$PatientID <- NULL
-#' df$InTestWindowFLG <- NULL
 #'
 #' set.seed(42)
 #'
@@ -117,6 +115,7 @@
 #' trusted_connection=true
 #' "
 #'
+#' # This query should pull only rows for training. They must have a label.
 #' query <- "
 #' SELECT
 #' [PatientEncounterID]
@@ -125,15 +124,11 @@
 #' ,[A1CNBR]
 #' ,[GenderFLG]
 #' ,[ThirtyDayReadmitFLG]
-#' ,[InTestWindowFLG]
 #' FROM [SAM].[dbo].[HCRDiabetesClinical]
-#' WHERE InTestWindowFLG = 'N'
 #' "
 #'
 #' df <- selectData(connection.string, query)
 #' head(df)
-#'
-#' df$InTestWindowFLG <- NULL
 #'
 #' set.seed(42)
 #'
@@ -235,6 +230,9 @@ RandomForestDevelopment <- R6Class("RandomForestDevelopment",
           control = list(maxit = 10000)
         )
       }
+
+      # Add factor levels (calculated in SMD) to fitLogit object
+      private$fitLogit$factorLevels <- private$factorLevels 
     },
     
     buildGrid = function() {
@@ -297,6 +295,7 @@ RandomForestDevelopment <- R6Class("RandomForestDevelopment",
     getPredictions = function(){
       return(private$predictions)
     },
+    
     # Override: build RandomForest model
     buildModel = function() {
       trainControlParams.method <- ""

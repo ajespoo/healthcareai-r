@@ -3,14 +3,12 @@
 #' @description This step allows you to create an XGBoost model, based on
 #' your data.
 #' @docType class
-#' @usage XGBoost Development(object, type, df, grainCol, predictedCol, 
+#' @usage XGBoostDevelopment(object, type, df, grainCol, predictedCol, 
 #' impute, debug)
 #' @import caret
 #' @import doParallel
 #' @import e1071
 #' @import xgboost
-#' @importFrom dplyr mutate
-#' @import magrittr
 #' @importFrom R6 R6Class
 #' @param object of SuperviseModelParameters class for $new() constructor
 #' @param type The type of model (either 'regression' or 'classification')
@@ -109,14 +107,18 @@ XGBoostDevelopment <- R6Class("XGBoostDevelopment",
       cat('Preparing data...', '\n')
       # XGB requires data.matrix format, not data.frame.
       # R factors are 1 indexed, XGB is 0 indexed, so we must subtract 1 from the labels. They must be numeric.
-      temp_train_data <- data.matrix(private$dfTrain[ ,!(colnames(private$dfTrain) == self$params$predictedCol)])
-      temp_train_label <- data.matrix(as.numeric(private$dfTrain[[self$params$predictedCol]])) - 1 
-      self$xgb_trainMatrix <- xgb.DMatrix(data = temp_train_data, label = temp_train_label)
+      temp_train_data <- private$dfTrain[ ,!(colnames(private$dfTrain) == self$params$predictedCol)]
+      temp_train_data[] <- lapply(temp_train_data, as.numeric)
+      temp_train_label <- as.numeric(private$dfTrain[[self$params$predictedCol]]) - 1 
+      self$xgb_trainMatrix <- xgb.DMatrix(data = data.matrix(temp_train_data), 
+                                          label = data.matrix(temp_train_label))
       rm(temp_train_data, temp_train_label) # clean temp variables
 
-      temp_test_data <- data.matrix(private$dfTest[ ,!(colnames(private$dfTest) == self$params$predictedCol)])
-      temp_test_label <- data.matrix(as.numeric(private$dfTest[[self$params$predictedCol]])) - 1 
-      self$xgb_testMatrix <- xgb.DMatrix(data = temp_test_data, label = temp_test_label) 
+      temp_test_data <- private$dfTest[ ,!(colnames(private$dfTest) == self$params$predictedCol)]
+      temp_test_data[] <- lapply(temp_test_data, as.numeric)
+      temp_test_label <- as.numeric(private$dfTest[[self$params$predictedCol]]) - 1 
+      self$xgb_testMatrix <- xgb.DMatrix(data = data.matrix(temp_test_data), 
+                                         label = data.matrix(temp_test_label)) 
       private$test_label <- temp_test_label # save for confusion matrix and output
       rm(temp_test_data, temp_test_label) # clean temp variables
     },
@@ -126,6 +128,8 @@ XGBoostDevelopment <- R6Class("XGBoostDevelopment",
       self$fitXGB <- xgb.train(params = self$params$xgb_params,
                              data = self$xgb_trainMatrix,
                              nrounds = self$params$xgb_nrounds)
+      # Save target list into the fit object for use in deploy
+      self$fitXGB$xgb_targetNames <- self$params$xgb_targetNames
     },
 
     # Perform prediction
@@ -134,10 +138,11 @@ XGBoostDevelopment <- R6Class("XGBoostDevelopment",
       temp_predictions <- predict(self$fitXGB, newdata = self$xgb_testMatrix, reshape = TRUE)
 
       # Build prediction output
-      private$predictions <- temp_predictions %>% 
-        data.frame() %>%
-        mutate(predicted_label = max.col(.),
-               true_label = private$test_label + 1)
+      private$predictions <- as.data.frame(temp_predictions)
+      # Pull the maximum probability for a given row.
+      private$predictions$predicted_label = max.col(private$predictions)
+      # XGBoost internally uses 0-indexed factors. Add 1 to match R's 1-indexed factors.
+      private$predictions$true_label = private$test_label + 1
 
       # Set column names to match input targets
       colnames(private$predictions)[1:self$params$xgb_numberOfClasses] <- self$params$xgb_targetNames

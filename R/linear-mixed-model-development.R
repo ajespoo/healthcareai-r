@@ -15,9 +15,7 @@
 #' @import lme4
 #' @import pROC
 #' @importFrom R6 R6Class
-#' @import ranger
 #' @import ROCR
-#' @import RODBC
 #' @param object of SuperviseModelParameters class for $new() constructor
 #' @param type The type of model (either 'regression' or 'classification')
 #' @param df Dataframe whose columns are used for calc.
@@ -100,8 +98,6 @@
 #'
 #' head(df)
 #'
-#' df$InTestWindowFLG <- NULL
-#'
 #' set.seed(42)
 #'
 #' p <- SupervisedModelDevelopmentParams$new()
@@ -140,6 +136,7 @@
 #' trusted_connection=true
 #' "
 #'
+#' # This query should pull only rows for training. They must have a label.
 #' query <- "
 #' SELECT
 #'  [PatientEncounterID]
@@ -149,15 +146,12 @@
 #' ,[A1CNBR]
 #' ,[GenderFLG]
 #' ,[ThirtyDayReadmitFLG]
-#' ,[InTestWindowFLG]
 #' FROM [SAM].[dbo].[HCRDiabetesClinical]
 #' --no WHERE clause, because we want train AND test
 #' "
 #'
 #' df <- selectData(connection.string, query)
 #' head(df)
-#'
-#' df$InTestWindowFLG <- NULL
 #'
 #' set.seed(42)
 #'
@@ -269,6 +263,9 @@ LinearMixedModelDevelopment <- R6Class("LinearMixedModelDevelopment",
           control = list(maxit = 10000)
         )
       }
+
+      # Add factor levels (calculated in SMD) to fitLogit object
+      private$fitLogit$factorLevels <- private$factorLevels 
     }
   ),
   

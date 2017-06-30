@@ -13,6 +13,8 @@ df <- read.csv(file = csvfile,
                stringsAsFactors = FALSE,
                na.strings = c("NULL", "NA", "", "?"))
 
+dfDeploy <- df[347:366,] # reserve 20 rows for deploy step.
+
 # 2. Develop and save model
 set.seed(42)
 p <- SupervisedModelDevelopmentParams$new()

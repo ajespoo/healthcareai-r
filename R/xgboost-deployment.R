@@ -12,8 +12,6 @@
 #' @import caret
 #' @import doParallel
 #' @import xgboost
-#' @importFrom dplyr mutate
-#' @import magrittr
 #' @importFrom R6 R6Class
 #' @param type The type of model (must be multiclass)
 #' @param df Dataframe whose columns are used for new predictions
@@ -36,24 +34,24 @@
 #' library(healthcareai)
 #' 
 #' # 1. Load data. Categorical columns should be characters.
+#' # can delete these system.file lines in your work
 #' csvfile <- system.file("extdata", 
-#'                        "dermatology_multiclass_data.csv", 
-#'                        package = "healthcareai")
-#' 
-#' # Replace csvfile with 'path/file'
-#' df <- read.csv(file = csvfile, 
-#'                header = TRUE, 
-#'                stringsAsFactors = FALSE,
-#'                na.strings = c("NULL", "NA", "", "?"))
+#'                       "dermatology_multiclass_data.csv", 
+#'                       package = "healthcareai")
+
+#'# Read in CSV; replace csvfile with 'path/file'
+#'df <- read.csv(file = csvfile, 
+#'               header = TRUE, 
+#'              stringsAsFactors = FALSE,
+#'               na.strings = c("NULL", "NA", "", "?"))
 #' 
 #' str(df) # check the types of columns
-#' dfDevelop <- df[1:346,] # use most of data to train and evalute the model.
 #' dfDeploy <- df[347:366,] # reserve 20 rows for deploy step.
 #' 
 #' # 2. Develop and save model (saving is automatic)
 #' set.seed(42)
 #' p <- SupervisedModelDevelopmentParams$new()
-#' p$df <- dfDevelop
+#' p$df <- df
 #' p$type <- "multiclass"
 #' p$impute <- TRUE
 #' p$grainCol <- "PatientID"
@@ -91,14 +89,115 @@
 #' outDf <- boostD$getOutDf()
 #' head(outDf)
 #' 
+#' # If you want to write to sqlite:
+#' # sqliteFile <- system.file("extdata",
+#' #                          "unit-test.sqlite",
+#' #                         package = "healthcareai")
+#' # writeData(SQLiteFileName = sqliteFile,
+#' #         df = outDf,
+#' #         tableName = "dermatologyDeployMulticlassBASE")
+#' 
 #' # Write to CSV (or JSON, MySQL, etc) using plain R syntax
 #' # write.csv(df,'path/predictionsfile.csv')
 #' 
 #' # Get raw predictions if you want
 #' # rawPredictions <- boostD$getPredictions()
 #' 
+#' # If you have known labels, check your prediction accuracy like this:
+#' # caret::confusionMatrix(true_label,
+#' #              predicted_label,
+#' #              mode = "everything")
+#' 
 #' print(proc.time() - ptm)
 #' 
+#' \donttest{
+#' #### Example pulling from CSV and writing to SQL server ####
+#' # This example requires you to first create a table in SQL Server
+#' # If you prefer to not use SAMD, execute this in SSMS to create output table:
+#' # CREATE TABLE [dbo].[dermatologyDeployClassificationBASE](
+#' # [BindingID] [int] NULL,[BindingNM] [varchar](255) NULL,
+#' # [LastLoadDTS] [datetime2](7) NULL,
+#' # [PatientID] [decimal](38, 0) NULL,
+#' # [PredictedProb1] [decimal](38, 2) NULL,
+#' # [PredictedClass1] [varchar](255) NULL,
+#' # [PredictedProb2] [decimal](38, 2) NULL,
+#' # [PredictedClass2] [varchar](255) NULL,
+#' # [PredictedProb3] [decimal](38, 2) NULL,
+#' # [PredictedClass3] [varchar](255) NULL)
+#' 
+#' 
+#' # 1. Load data. Categorical columns should be characters.
+#' csvfile <- system.file("extdata", 
+#'                        "dermatology_multiclass_data.csv", 
+#'                        package = "healthcareai")
+#' 
+#' # Replace csvfile with 'path/file'
+#' df <- read.csv(file = csvfile, 
+#'                header = TRUE, 
+#'                stringsAsFactors = FALSE,
+#'                na.strings = c("NULL", "NA", "", "?"))
+#' 
+#' str(df) # check the types of columns
+#' dfDeploy <- df[347:366,] # reserve 20 rows for deploy step.
+#' 
+#' 
+#' # 2. Develop and save model (saving is automatic)
+#' set.seed(42)
+#' p <- SupervisedModelDevelopmentParams$new()
+#' p$df <- df
+#' p$type <- "multiclass"
+#' p$impute <- TRUE
+#' p$grainCol <- "PatientID"
+#' p$predictedCol <- "target"
+#' p$debug <- FALSE
+#' p$cores <- 1
+#' # xgb_params must be a list with all of these things in it. 
+#' # if you would like to tweak parameters, go for it! 
+#' # Leave objective and eval_metric as they are.
+#' p$xgb_params <- list("objective" = "multi:softprob",
+#'                    "eval_metric" = "mlogloss",
+#'                    "max_depth" = 6, # max depth of each learner
+#'                    "eta" = 0.1, # learning rate
+#'                    "silent" = 0, # verbose output when set to 1
+#'                    "nthread" = 2) # number of processors to use
+#' 
+#' # Run model
+#' boost <- XGBoostDevelopment$new(p)
+#' boost$run()
+#' 
+#' ## 3. Load saved model (automatic) and use DEPLOY to generate predictions. 
+#' p2 <- SupervisedModelDeploymentParams$new()
+#' p2$type <- "multiclass"
+#' p2$df <- dfDeploy
+#' p2$grainCol <- "PatientID"
+#' p2$predictedCol <- "target"
+#' p2$impute <- TRUE
+#' p2$debug <- FALSE
+#' 
+#' # Deploy model to make new predictions
+#' boostD <- XGBoostDeployment$new(p2)
+#' boostD$deploy()
+#' 
+#' # Get output dataframe for csv or SQL
+#' outDf <- boostD$getOutDf()
+#' head(outDf)
+#' 
+#' # Save the output to SQL server
+#' 
+#' connection.string <- "
+#' driver={SQL Server};
+#' server=localhost;
+#' database=SAM;
+#' trusted_connection=true
+#' "
+#' writeData(MSSQLConnectionString = connection.string,
+#'        df = outDf,
+#'        tableName = 'dermatologyDeployClassificationBASE')
+#'        
+#' # Get raw predictions if you want
+#' # rawPredictions <- boostD$getPredictions()
+#' print(proc.time() - ptm)
+#' }
 
  XGBoostDeployment <- R6Class("XGBoostDeployment",
   #Inheritance
@@ -122,11 +221,28 @@
       cat('Preparing data...', '\n')
       # XGB requires data.matrix format, not data.frame.
       # R factors are 1 indexed, XGB is 0 indexed, so we must subtract 1 from the labels. They must be numeric.
-      temp_test_data <- data.matrix(private$dfTestTemp[ ,!(colnames(private$dfTestTemp) == self$params$predictedCol)])
-      temp_test_label <- data.matrix(as.numeric(private$dfTestTemp[[self$params$predictedCol]])) - 1 
-      self$xgb_testMatrix <- xgb.DMatrix(data = temp_test_data, label = temp_test_label) 
-      private$test_label <- temp_test_label # save for confusion matrix and output
-      rm(temp_test_data, temp_test_label) # clean temp variables
+      temp_test_data <- self$params$df[ ,!(colnames(self$params$df) == self$params$predictedCol)]
+      temp_test_data[] <- lapply(temp_test_data, as.numeric)
+      self$xgb_testMatrix <- xgb.DMatrix(data = data.matrix(temp_test_data)) 
+      rm(temp_test_data) # clean temp variables
+
+      # For multiclass xgboost initialization:
+      # 1. Load the class names from development.
+      # 2. Get the number of classes.
+      # 3. Save the grain column for output.
+      # Names
+      self$params$xgb_targetNames <- private$fitXGB$xgb_targetNames
+      # Number
+      self$params$xgb_numberOfClasses <- length(self$params$xgb_targetNames)
+      # Grain
+      private$dfGrain <- self$params$df[[self$params$grainCol]]
+      # prints
+      if (isTRUE(self$params$debug)) {
+        cat('Unique classes found:', '\n')
+        print(self$params$xgb_targetNames)
+        cat('Number of classes:', '\n')
+        print(self$params$xgb_numberOfClasses)
+      }
     },
 
     # Perform prediction
@@ -137,11 +253,9 @@
                                   reshape = TRUE)
       
       # Build prediction output
-      private$predictions <- private$temp_predictions %>% 
-        data.frame() %>%
-        mutate(predicted_label = max.col(.),
-               true_label = private$test_label + 1)
-
+      private$predictions <- as.data.frame(private$temp_predictions)
+      private$predictions$predicted_label = max.col(private$predictions)
+      
       # Set column names to match input targets
       colnames(private$predictions)[1:self$params$xgb_numberOfClasses] <- self$params$xgb_targetNames
       colnames(private$temp_predictions)[1:self$params$xgb_numberOfClasses] <- self$params$xgb_targetNames
@@ -151,7 +265,6 @@
       to <- self$params$xgb_targetNames
       map = setNames(to,from)
       private$predictions$predicted_label <- map[private$predictions$predicted_label] # note square brackets
-      private$predictions$true_label <- map[private$predictions$true_label] 
 
       # Prepare output 
       private$predictions <- cbind(private$grainTest, private$predictions)
