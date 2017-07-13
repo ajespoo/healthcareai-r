@@ -181,6 +181,7 @@ RandomForestDevelopment <- R6Class("RandomForestDevelopment",
     # Get random forest model
     fitRF = NA,
     fitLogit = NA,
+    LIMEExplainer = NA,
 
     predictions = NA,
 
@@ -200,9 +201,11 @@ RandomForestDevelopment <- R6Class("RandomForestDevelopment",
       
         fitLogit <- private$fitLogit
         fitObj <- private$fitRF
+        explainer <- private$LIMEExplainer
         
         save(fitLogit, file = "rmodel_var_import_RF.rda")
         save(fitObj, file = "rmodel_probability_RF.rda")
+        save(explainer, file = "rexplainer_RF.rda")
       },
     
     # this function must be in here for the row-wise predictions.
@@ -359,6 +362,14 @@ RandomForestDevelopment <- R6Class("RandomForestDevelopment",
         tuneGrid = private$grid,
         trControl = train.control
       )
+      
+      # Build LIME Explainer
+      if (self$params$type == 'classification') {
+        private$LIMEExplainer <- buildLIMEExplainer(
+          trainingSet = private$dfTrain[ ,!(colnames(private$dfTrain) 
+                                            == self$params$predictedCol)], 
+          trainedModel = private$fitRF)
+      }
     },
 
     # Perform prediction
