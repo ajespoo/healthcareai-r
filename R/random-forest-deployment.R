@@ -403,6 +403,7 @@ RandomForestDeployment <- R6Class("RandomForestDeployment",
     fitRF = NA,
     fitLogit = NA,
     predictions = NA,
+    LIMEExplainer = NA,
 
     # functions
     # Perform prediction
@@ -541,6 +542,8 @@ RandomForestDeployment <- R6Class("RandomForestDeployment",
         private$fitLogit <- fitLogit
         load("rmodel_probability_RF.rda") # Produces fit object (for probability)
         private$fitRF <- fitObj
+        load("rexplainer_RF.rda")  # Produces LIME
+        private$LIMEExplainer <- explainer
        }, error = function(e) {
         # temporary fix until all models are working.
         stop('You must use a saved model. Run random forest development to train 
@@ -571,6 +574,37 @@ RandomForestDeployment <- R6Class("RandomForestDeployment",
     # Surface outDf as attribute for export to Oracle, MySQL, etc
     getOutDf = function() {
       return(private$outDf)
+    },
+    
+    # Return lime explainer
+    getLIMEExplainer = function() {
+      return(private$LIMEExplainer)
+    },
+    
+    # Return lime explanations
+    LIMEExplanations = function(rowNumbers = NULL, grainColIDs = NULL) {
+      
+      if (self$params$type != "classification") {
+        stop("LIME explanations are only implemented for random forest classifiers")
+      } else {
+        withGrain <- cbind(grain = private$grainTest, self$params$df)
+        
+        if (is.null(rowNumbers) & is.null(grainColIDs)) {
+          stop("Must provide either a vector of row numbers or a vector of grain column IDs")
+        } else if (is.null(grainColIDs)) {
+          desiredRows <- withGrain[rowNumbers, ]
+        } else {
+          desiredRows <- subset(withGrain, withGrain$grain %in% grainColIDs, 1:ncol(withGrain))
+        }
+        
+        explanations <- getLIMEExplanations(explainer = private$LIMEExplainer,
+                                            testSet = desiredRows, 
+                                            numLabels = 1,
+                                            numFeatures = 3, 
+                                            grainCol = "grain", 
+                                            predictedCol = self$params$predictedCol)
+        return(explanations)
+      }
     }
   )
 )
