@@ -12,12 +12,14 @@
 buildLIMEExplainer = function(trainingSet, 
                               trainedModel,
                               binContinuous = TRUE,
-                              bins = 5) {
+                              bins = 5, 
+                              ...) {
   # build explainer usin LIME
   explainer <- lime::lime(x = trainingSet, 
                           model = trainedModel, 
                           bin_continuous = binContinuous,
-                          n_bins = bins)
+                          n_bins = bins,
+                          ...)
   return(explainer)
 }
 
@@ -38,7 +40,8 @@ getLIMEExplanations = function(explainer,
                                numLabels,
                                numFeatures = 3, 
                                grainCol = NULL, 
-                               predictedCol = NULL) {
+                               predictedCol = NULL, 
+                               ...) {
   
   # Remove predictedCol and grainCol from testSet
   cleanData <- testSet[!(colnames(testSet) %in% c(grainCol, predictedCol))]
@@ -46,7 +49,8 @@ getLIMEExplanations = function(explainer,
   # build explainer using LIME
   explanations <- explainer(cases = cleanData, 
                             n_labels = numLabels,
-                            n_features = numFeatures)
+                            n_features = numFeatures,
+                            ...)
   
   # Label rows using the grain column if it exists
   if (!is.null(predictedCol)) {
