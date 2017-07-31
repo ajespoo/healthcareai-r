@@ -360,6 +360,20 @@ SupervisedModelDevelopment <- R6Class("SupervisedModelDevelopment",
         print('Factor levels for top factor calculation')
         print(str(private$factorLevels))
       }
+      
+      # Save standard deviations and factor levels
+      self$modelInfo$featureDistributions <- list()
+      for (col in names(self$params$df)) {
+        if (!col %in% c(self$params$predictedCol, self$params$grainCol)) {
+          if (is.numeric(self$params$df[[col]])) {
+            self$modelInfo$featureDistributions[[col]] <-
+              sd(self$params$df[[col]])
+          } else {
+            self$modelInfo$featureDistributions[[col]] <-
+              self$modelInfo$factorLevels[[col]]
+          }
+        }
+      }
     }, 
     
     # This function must be in here for the row-wise predictions and
