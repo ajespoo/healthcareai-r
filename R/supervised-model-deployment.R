@@ -90,6 +90,9 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
   
   if (!is.null(p$modelName))
     self$params$modelName <- p$modelName
+  
+  if (!is.null(p$modifiableVariables))
+    self$params$modifiableVariables <- p$modifiableVariables
 
   # for deploy method
   if (!is.null(p$cores))
@@ -302,6 +305,13 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
 
     #Deploy the Model
     deploy = function() {
+    },
+    
+    getModifiableFactorsDf = function(rows) {
+      if (is.null(self$params$modifiableVariables)) {
+        stop("No modifiable variables set")
+      }
+      
     }
   )
 )
