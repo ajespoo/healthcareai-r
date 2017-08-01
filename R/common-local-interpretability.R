@@ -51,3 +51,20 @@ localPerturbations = function(baseRow,
   df$temp_column_to_drop <- NULL
   return(df)
 }
+
+localLinearApproximation = function(fitObj, 
+                                    localDf) {
+  # get model output probs on localDf
+  predictions <- predict.train(object = fitObj,
+                               newdata = localDf,
+                               type = "prob")
+  
+  testDf <- cbind(localDf, predictions[,2])
+  # fit linear model
+  linearApproximation <- lm(predictions~., data = testDf)
+  return(linearApproximation)
+}
+
+getLinearCoeffs = function(linearModel) {
+  return(linearModel$coefficients)
+}
