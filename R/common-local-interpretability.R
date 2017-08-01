@@ -65,6 +65,22 @@ localLinearApproximation = function(fitObj,
   return(linearApproximation)
 }
 
-getLinearCoeffs = function(linearModel) {
-  return(linearModel$coefficients)
+getLinearCoeffs = function(linearModel, orderByMagnitude = FALSE) {
+  coefs <- linearModel$coefficients
+  # peel off intercept
+  intercept <- coefs[1]
+  coefs <- coefs[2:length(coefs)]
+  
+  # remove NAs
+  coefs <- coefs[!is.na(coefs)]
+  
+  # reorder by absolute value
+  if (orderByMagnitude) {
+    coefs <- coefs[order(abs(coefs), decreasing = T)] 
+  } else {
+    coefs <- coefs[order(coefs, decreasing = T)] 
+  }
+  attr(coefs, "intercept") <- intercept
+  
+  return(coefs)
 }
