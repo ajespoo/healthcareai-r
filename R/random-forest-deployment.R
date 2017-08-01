@@ -569,6 +569,10 @@ RandomForestDeployment <- R6Class("RandomForestDeployment",
     # Surface outDf as attribute for export to Oracle, MySQL, etc
     getOutDf = function() {
       return(private$outDf)
+    },
+    
+    getFitObj = function() {
+      return(private$fitRF)
     }
   )
 )
