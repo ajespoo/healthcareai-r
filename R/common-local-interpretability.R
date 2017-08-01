@@ -52,14 +52,27 @@ localPerturbations = function(baseRow,
   return(df)
 }
 
-localLinearApproximation = function(fitObj, 
+localLinearApproximation = function(baseRow, 
+                                    fitObj, 
                                     localDf) {
   # get model output probs on localDf
   predictions <- predict.train(object = fitObj,
                                newdata = localDf,
                                type = "prob")
+  yesProbs <- data.frame(predictions = predictions[,2])
   
-  testDf <- cbind(localDf, predictions[,2])
+  for (col in names(localDf)) {
+    if (is.factor(localDf[[col]])) {
+      if (length(unique(localDf[[col]])) == 1) {
+        # remove factor columns with no variance
+        localDf[[col]] <- NULL
+      } else {
+        # Set base level for dummy variables
+        localDf[[col]] <- relevel(localDf[[col]], as.character(baseRow[[col]]))
+      }
+    }
+  }
+  testDf <- cbind(localDf, yesProbs)
   # fit linear model
   linearApproximation <- lm(predictions~., data = testDf)
   return(linearApproximation)
