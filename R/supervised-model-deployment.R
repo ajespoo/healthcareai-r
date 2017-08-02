@@ -352,6 +352,46 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
       if (is.null(self$params$modifiableVariables)) {
         stop("No modifiable variables set")
       }
+      
+      # number of factors (with each factor l)
+      modifiableFactors <- 
+        self$modelInfo$featureDistributions[self$params$modifiableVariables]
+      factorCount <- sum(sapply(X = modifiableFactors, FUN = length))
+      # number of baseline dummies (one for each modifiable factor variable)
+      baselines <- sum(sapply(X = modifiableFactors, FUN = is.character))
+      
+      modifiableFactorsDf <- data.frame(GrainId = private$grainTest)
+      for (i in 1:(factorCount - baselines)) {
+        factorNameCol <- paste0("Factor", i, "TXT")
+        factorWeightCol <- paste0("Factor", i, "Weight")
+        modifiableFactorsDf[[factorNameCol]] <- NA
+        modifiableFactorsDf[[factorWeightCol]] <- NA
+      }
+      
+      for (i in 1:nrow(self$params$df)) {
+        # Get perturbed data
+        dfTemp <- localPerturbations(
+                    baseRow = self$params$df[i, ],
+                    modifiableCols = self$params$modifiableVariables,
+                    info = self$modelInfo$featureDistributions,
+                    size = 2000,
+                    spread = 1/2,
+                    grainCol = self$params$grainCol, 
+                    predictedCol = self$params$predictedCol)
+        
+        # Get local linear approximation
+        linA <- localLinearApproximation(baseRow = self$params$df[i, ], 
+                                         fitObj = private$fitRF,
+                                         localDf = dfTemp)
+        
+        coefs <- getLinearCoeffs(linearModel = linA, 
+                                 orderByMagnitude = T)
+        
+        # Add factors and weights to dataframe
+        modifiableFactorsDf[i, 2:ncol(modifiableFactorsDf)] <- 
+          c(rbind(names(coefs), signif(as.numeric(coefs), 4)))
+      }
+      return(modifiableFactorsDf)
     },
     
     # A function to get the ordered list of top factors with parameters to 
