@@ -97,3 +97,55 @@ getLinearCoeffs = function(linearModel, orderByMagnitude = FALSE) {
   
   return(coefs)
 }
+
+plotVariableEffects = function(baseRow, 
+                               modifiableCols,
+                               info,
+                               fitObj,
+                               spread = 1/2, 
+                               grid = NULL) {
+  # By default, display at most 8 graphs
+  if (is.null(grid)) {
+    numberOfPlots <- length(modifiableCols)
+    displayRows <- min(2, ceiling(numberOfPlots/4))
+    displayCols <- min(4, numberOfPlots)
+    grid <- c(displayRows, displayCols)
+  }
+  oldGraphicalParams <- par()$mfrow
+  par(mfrow = grid)
+  
+  for (col in modifiableCols) {
+    # Build dataframe with variation in a single column
+    if (is.numeric(baseRow[[col]])) {
+      # Add column with variation to df
+      sd <- info[[col]]
+      singleVarDf <- data.frame(seq(from = baseRow[[col]] - sd*spread,
+                                    to = baseRow[[col]] + sd*spread,
+                                    length.out = 100))
+    } else {
+      singleVarDf <- data.frame(info[[col]])
+    }
+    names(singleVarDf) <- c(col)
+    
+    # Add the other columns
+    for (col2 in names(baseRow)) {
+      if (col2 != col) singleVarDf[[col2]] <- baseRow[[col2]]
+    }
+    # Get prediction probabilities
+    predictions <- predict.train(object = fitObj,
+                                 newdata = singleVarDf,
+                                 type = "prob")
+    yesProbs <- data.frame(predictions = predictions[,2])
+    
+    # plot the effect of changing the variable
+    plot(singleVarDf[[col]], yesProbs$predictions, type = "l",
+         ylim = c(0, 1), xlab = col, ylab = "Probability")
+
+    rowPred <- predict.train(object = fitObj,
+                             newdata = baseRow,
+                             type = "prob")[2]
+    abline(h = rowPred, lty = "dashed")
+    points(baseRow[[col]], rowPred, pch = 16, cex = 1.5)
+  }
+  par(mfrow = oldGraphicalParams)
+}
