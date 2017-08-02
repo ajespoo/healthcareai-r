@@ -456,6 +456,12 @@ SupervisedModelDevelopment <- R6Class("SupervisedModelDevelopment",
 
     #Run the Model for Prediction
     run = function() {
+    },
+
+    getTrainTestData = function() {
+      return(list(trainData=private$dfTrain, 
+        testData=private$dfTest,
+        trainIndex=self$trainIndex))
     }
   )
 )
