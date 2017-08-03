@@ -353,7 +353,7 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
         stop("No modifiable variables set")
       }
       
-      # number of factors (with each factor l)
+      # number of variables (1 for continuous #levels for factor)
       modifiableFactors <- 
         self$modelInfo$featureDistributions[self$params$modifiableVariables]
       factorCount <- sum(sapply(X = modifiableFactors, FUN = length))
@@ -381,8 +381,9 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
         
         # Get local linear approximation
         linA <- localLinearApproximation(baseRow = self$params$df[i, ], 
-                                         fitObj = private$fitRF,
-                                         localDf = dfTemp)
+                                         fitObj = self$getFitObj(),
+                                         localDf = dfTemp,
+                                         type = self$params$type)
         
         coefs <- getLinearCoeffs(linearModel = linA, 
                                  orderByMagnitude = T)
