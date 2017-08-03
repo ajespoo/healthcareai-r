@@ -401,8 +401,8 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
       
       modifiableFactorsDf <- data.frame(GrainId = grainColumn)
       for (i in 1:(factorCount - baselines)) {
-        factorNameCol <- paste0("Factor", i, "TXT")
-        factorWeightCol <- paste0("Factor", i, "Weight")
+        factorNameCol <- paste0("Modify", i, "TXT")
+        factorWeightCol <- paste0("Modify", i, "WT")
         modifiableFactorsDf[[factorNameCol]] <- NA
         modifiableFactorsDf[[factorWeightCol]] <- NA
       }
@@ -432,6 +432,22 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
           c(rbind(names(coefs), signif(as.numeric(coefs), 4)))
       }
       return(modifiableFactorsDf)
+    },
+    
+    plotSingleVariables = function(rowNumber = NULL, grainID = NULL, ...) {
+      if (length(rowNumber) == 0 & length(grainID) == 0) {
+        stop("Must provide a row number or grain column ID")
+      } else if (length(grainID) == 0) {
+        baseRow <- self$params$df[rowNumber, ]
+      } else {
+        baseRow <- self$params$df[private$grainTest == grainID, ]
+      }
+      plotVariableEffects(baseRow = baseRow,
+                          modifiableCols = self$params$modifiableVariables,
+                          info = self$modelInfo$featureDistributions,
+                          fitObj = self$getFitObj(),
+                          type = self$params$type,
+                          ...)
     },
     
     # A function to get the ordered list of top factors with parameters to 
