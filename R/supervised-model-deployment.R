@@ -377,7 +377,11 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
     deploy = function() {
     },
     
-    getModifiableFactorsDf = function(rows) {
+    getModifiableFactorsDf = function(rowNumbers = NULL, grainIDs = NULL) {
+      if (length(rowNumbers) == 0 & length(grainIDs) == 0) {
+        rowNumbers = 1:length(private$grainTest)
+      }
+      
       if (is.null(self$params$modifiableVariables)) {
         stop("No modifiable variables set")
       }
@@ -389,7 +393,13 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
       # number of baseline dummies (one for each modifiable factor variable)
       baselines <- sum(sapply(X = modifiableFactors, FUN = is.character))
       
-      modifiableFactorsDf <- data.frame(GrainId = private$grainTest)
+      if (length(rowNumbers) == 0) {
+        grainColumn <- private$grainTest
+        rowNumbers <- (1:length(grainColumn))[grainColumn %in% grainIDs]
+      }
+      grainColumn <- private$grainTest[rowNumbers]
+      
+      modifiableFactorsDf <- data.frame(GrainId = grainColumn)
       for (i in 1:(factorCount - baselines)) {
         factorNameCol <- paste0("Factor", i, "TXT")
         factorWeightCol <- paste0("Factor", i, "Weight")
@@ -397,10 +407,10 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
         modifiableFactorsDf[[factorWeightCol]] <- NA
       }
       
-      for (i in 1:nrow(self$params$df)) {
+      for (i in 1:length(rowNumbers)) {
         # Get perturbed data
         dfTemp <- localPerturbations(
-                    baseRow = self$params$df[i, ],
+                    baseRow = self$params$df[rowNumbers[i], ],
                     modifiableCols = self$params$modifiableVariables,
                     info = self$modelInfo$featureDistributions,
                     size = 2000,
@@ -409,7 +419,7 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
                     predictedCol = self$params$predictedCol)
         
         # Get local linear approximation
-        linA <- localLinearApproximation(baseRow = self$params$df[i, ], 
+        linA <- localLinearApproximation(baseRow = self$params$df[rowNumbers[i], ], 
                                          fitObj = self$getFitObj(),
                                          localDf = dfTemp,
                                          type = self$params$type)
