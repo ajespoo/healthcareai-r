@@ -386,51 +386,57 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
         stop("No modifiable variables set")
       }
       
-      # number of variables (1 for continuous #levels for factor)
-      modifiableFactors <- 
-        self$modelInfo$featureDistributions[self$params$modifiableVariables]
-      factorCount <- sum(sapply(X = modifiableFactors, FUN = length))
-      # number of baseline dummies (one for each modifiable factor variable)
-      baselines <- sum(sapply(X = modifiableFactors, FUN = is.character))
-      
+      # Determine the correct row numbers
       if (length(rowNumbers) == 0) {
         grainColumn <- private$grainTest
         rowNumbers <- (1:length(grainColumn))[grainColumn %in% grainIDs]
       }
       grainColumn <- private$grainTest[rowNumbers]
       
-      modifiableFactorsDf <- data.frame(GrainId = grainColumn)
-      for (i in 1:(factorCount - baselines)) {
-        factorNameCol <- paste0("Modify", i, "TXT")
-        factorWeightCol <- paste0("Modify", i, "WT")
-        modifiableFactorsDf[[factorNameCol]] <- NA
-        modifiableFactorsDf[[factorWeightCol]] <- NA
-      }
-      
-      for (i in 1:length(rowNumbers)) {
+      # Build the dataframe of factors and weights
+      dfList <- lapply(1:length(rowNumbers), function(i) {
+        
+        thisRow <- self$params$df[rowNumbers[i], ]
+        
         # Get perturbed data
         dfTemp <- localPerturbations(
-                    baseRow = self$params$df[rowNumbers[i], ],
-                    modifiableCols = self$params$modifiableVariables,
-                    info = self$modelInfo$featureDistributions,
-                    size = 2000,
-                    spread = 1/2,
-                    grainCol = self$params$grainCol, 
-                    predictedCol = self$params$predictedCol)
+          baseRow = thisRow,
+          modifiableCols = self$params$modifiableVariables,
+          info = self$modelInfo$featureDistributions,
+          size = 2500,
+          spread = 1/4,
+          grainCol = self$params$grainCol, 
+          predictedCol = self$params$predictedCol)
         
         # Get local linear approximation
-        linA <- localLinearApproximation(baseRow = self$params$df[rowNumbers[i], ], 
+        linA <- localLinearApproximation(baseRow = thisRow, 
                                          fitObj = self$getFitObj(),
                                          localDf = dfTemp,
                                          type = self$params$type)
         
+        # Get the linear model's prediction for this row
+        linAPrediction <- predict(linA, newdata = thisRow)
+        
+        # Get the ordered linear model coefficients
         coefs <- getLinearCoeffs(linearModel = linA, 
                                  orderByMagnitude = T)
-        
+
         # Add factors and weights to dataframe
-        modifiableFactorsDf[i, 2:ncol(modifiableFactorsDf)] <- 
-          c(rbind(names(coefs), signif(as.numeric(coefs), 4)))
-      }
+        tmp <- lapply(seq_along(coefs), function(i) 
+          structure(data.frame(names(coefs)[i], signif(coefs[i], 4), 
+                               row.names = NULL), 
+                    names = paste0("Modify", i, c("TXT", "WT"))))
+        tmp["LMPrediction"] <- signif(linAPrediction, 4)
+        tmp["LMIntercept"] <- signif(attr(coefs, "intercept"), 4)
+        
+        return(do.call(cbind, tmp))
+      })
+
+      # Combine grain column and modifiable factors into a dataframe
+      modifiableFactorsDf <- cbind(data.frame(GrainId = grainColumn), 
+                                   do.call(rbind, dfList))
+      
+      # Return dataframe of modifiable factors and their weights
       return(modifiableFactorsDf)
     },
     
