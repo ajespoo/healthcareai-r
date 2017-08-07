@@ -532,6 +532,16 @@ LassoDeployment <- R6Class(
     # Surface outDf as attribute for export to Oracle, MySQL, etc
     getOutDf = function() {
       return(private$outDf)
+    },
+    
+    # make predictions on new data
+    newPredictions = function(newData) {
+      predictions <- stats::predict(object = private$fitGrLasso,
+                                    X = model.matrix(private$modFmla,
+                                                     data = newData)[,-1],
+                                    lambda = private$lambda1se,
+                                    type = "response")
+      return(data.frame(predictions))
     }
   )
 )

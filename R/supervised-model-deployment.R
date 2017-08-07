@@ -410,9 +410,8 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
         
         # Get local linear approximation
         linA <- localLinearApproximation(baseRow = thisRow, 
-                                         fitObj = self$getFitObj(),
-                                         localDf = dfTemp,
-                                         type = self$params$type)
+                                         predictFunction = self$newPredictions,
+                                         localDf = dfTemp)
         
         # Get the linear model's prediction for this row
         linAPrediction <- predict(linA, newdata = thisRow)
@@ -440,7 +439,9 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
       return(modifiableFactorsDf)
     },
     
-    plotSingleVariables = function(rowNumber = NULL, grainID = NULL, ...) {
+    plotSingleVariables = function(rowNumber = NULL, 
+                                   grainID = NULL, 
+                                   ...) {
       if (length(rowNumber) == 0 & length(grainID) == 0) {
         stop("Must provide a row number or grain column ID")
       } else if (length(grainID) == 0) {
@@ -451,8 +452,10 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
       plotVariableEffects(baseRow = baseRow,
                           modifiableCols = self$params$modifiableVariables,
                           info = self$modelInfo$featureDistributions,
-                          fitObj = self$getFitObj(),
+                          predictFunction = self$newPredictions,
                           type = self$params$type,
+                          extra = self$getModifiableFactorsDf(rowNumbers = rowNumber, 
+                                                              grainIDs = grainID),
                           ...)
     },
     

@@ -39,7 +39,7 @@ localPerturbations = function(baseRow,
           sd <- info[[col]]
           df[[col]] <- rnorm(size, mean = mu, sd = spread*sd)
         } else {# not numeric
-          levels <- factor(info[[col]], ordered = F)
+          levels <- factor(info[[col]], levels = info[[col]], ordered = F)
           df[[col]] <- sample(levels, replace = T, size = size)
         }
       } else {# not modifiable -> repeat mu throughout
@@ -61,7 +61,6 @@ localPerturbations = function(baseRow,
 #' @param fitObj The model to approximate
 #' @param localDf A dataframe of data near baseRow on which to approximate the 
 #' model
-#' @param type Type of model we to approximate: "classification" or "regression"
 #' 
 #' @return The linear model approximating the original model
 #'
@@ -69,21 +68,11 @@ localPerturbations = function(baseRow,
 #' @references \url{http://healthcare.ai}
 #' @seealso \code{\link{healthcareai}}
 localLinearApproximation = function(baseRow, 
-                                    fitObj, 
-                                    localDf, 
-                                    type) {
+                                    predictFunction, 
+                                    localDf) {
   # get model output probs/values on localDf
-  if (type == "classification") {
-    predictions <- caret::predict.train(object = fitObj,
-                                 newdata = localDf,
-                                 type = "prob")
-    labels <- data.frame(predictions = predictions[,2])
-  } else if (type == "regression") {
-    predictions <- caret::predict.train(object = fitObj, 
-                                        newdata = localDf, 
-                                        type = "raw")
-    labels <- data.frame(predictions)
-  }
+  labels <- predictFunction(localDf)
+  
   for (col in names(localDf)) {
     if (is.factor(localDf[[col]])) {
       if (length(unique(localDf[[col]])) == 1) {
@@ -149,6 +138,7 @@ getLinearCoeffs = function(linearModel, orderByMagnitude = FALSE) {
 #' @param fitObj the model for which we are plotting changes in variables
 #' @param type the type of fitObj: "classification" or "regression"
 #' @param spread a number representing how widely to vary the variables
+#' @param extra
 #' @param grid An ordered pair of integers (rows, columns) which determines the 
 #' number of plots to display at once. The first entry determines the number of
 #' rows and the second determines the number of columns.
@@ -159,9 +149,10 @@ getLinearCoeffs = function(linearModel, orderByMagnitude = FALSE) {
 plotVariableEffects = function(baseRow, 
                                modifiableCols,
                                info,
-                               fitObj,
+                               predictFunction,
                                type,
-                               spread = 1/2, 
+                               spread = 1/2,
+                               extra = NULL,
                                grid = NULL) {
   # By default, display at most 8 graphs
   if (is.null(grid)) {
@@ -182,7 +173,7 @@ plotVariableEffects = function(baseRow,
                                     to = baseRow[[col]] + sd*spread,
                                     length.out = 100))
     } else {
-      singleVarDf <- data.frame(info[[col]])
+      singleVarDf <- data.frame(factor(info[[col]], levels = info[[col]]))
     }
     names(singleVarDf) <- c(col)
     
@@ -191,28 +182,47 @@ plotVariableEffects = function(baseRow,
       if (col2 != col) singleVarDf[[col2]] <- baseRow[[col2]]
     }
     
-    if (type == "classification") {
-    # Get prediction probabilities
-      predictions <- predict.train(object = fitObj,
-                                   newdata = singleVarDf,
-                                   type = "prob")
-      labels <- data.frame(predictions = predictions[,2])
-    } else if (type == "regression") {
-      predictions <- caret::predict.train(object = fitObj, 
-                                          newdata = singleVarDf, 
-                                          type = "raw")
-      labels <- data.frame(predictions)
-    }
+    labels <- predictFunction(singleVarDf)
+    rowPred <- predictFunction(baseRow)
+    LMrowPred <- extra$LMPrediction
     
     # plot the effect of changing the variable
+    if (type == "classification") {
+      yAxisLabel <- "Probability"
+      yAxisLimits <- c(0,1)
+    } else {
+      yAxisLabel <- "Response"
+      diff <- as.numeric(abs(rowPred - LMrowPred))
+      yMin <- as.numeric(min(labels$predictions))
+      yMax <- as.numeric(max(labels$predictions))
+      ySD <- as.numeric(sd(labels$predictions))
+      yAxisLimits <- c(2*yMin - yMax - diff, 2*yMax - yMin + diff)
+    }
+    
     plot(singleVarDf[[col]], labels$predictions, type = "l",
-         ylim = c(0, 1), xlab = col, ylab = "Probability")
-
-    rowPred <- predict.train(object = fitObj,
-                             newdata = baseRow,
-                             type = "prob")[2]
+         ylim = yAxisLimits, xlab = col, ylab = yAxisLabel)
+    
     abline(h = rowPred, lty = "dashed")
     points(baseRow[[col]], rowPred, pch = 16, cex = 1.5)
+    
+    if (!is.null(extra)) {
+      points(baseRow[[col]],extra$LMPrediction, pch = 8, col = "red")
+      if (is.numeric(baseRow[[col]])) {
+        slope <- as.numeric(extra[which(extra == col) + 1])
+        xCoords <- baseRow[[col]] + 0.5*sd*spread*c(-1, 1)
+        yCoords <- slope*(xCoords - baseRow[[col]]) + LMrowPred
+        lines(xCoords, yCoords, col = "red")
+      } else {
+        for (level in info[[col]]) {
+          if (level != baseRow[[col]]) {
+            slope <- as.numeric(extra[which(extra == paste0(col, level)) + 1])
+            xCoord <- factor(level, levels = info[[col]])
+            yCoord <- slope + extra$LMPrediction
+            points(xCoord, y = yCoord, pch = 1, col = "red")
+          }
+        }
+      }
+    }
   }
   par(mfrow = oldGraphicalParams)
 }
