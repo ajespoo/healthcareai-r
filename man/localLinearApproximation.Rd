@@ -4,18 +4,16 @@
 \alias{localLinearApproximation}
 \title{Build a linear model approximating another model}
 \usage{
-localLinearApproximation(baseRow, fitObj, localDf, type)
+localLinearApproximation(baseRow, predictFunction, localDf)
 }
 \arguments{
 \item{baseRow}{A row in a dataframe containing a data point at which to make 
 the linear approximation.}
 
-\item{fitObj}{The model to approximate}
-
 \item{localDf}{A dataframe of data near baseRow on which to approximate the 
 model}
 
-\item{type}{Type of model we to approximate: "classification" or "regression"}
+\item{fitObj}{The model to approximate}
 }
 \value{
 The linear model approximating the original model

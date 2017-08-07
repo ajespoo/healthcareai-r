@@ -4,8 +4,8 @@
 \alias{plotVariableEffects}
 \title{Plot the output of a model as each coefficient changes individually}
 \usage{
-plotVariableEffects(baseRow, modifiableCols, info, fitObj, type, spread = 1/2,
-  grid = NULL)
+plotVariableEffects(baseRow, modifiableCols, info, predictFunction, type,
+  spread = 1/2, extra = NULL, grid = NULL)
 }
 \arguments{
 \item{baseRow}{a row in a data frame, used as the reference from which to 
@@ -18,15 +18,17 @@ which should be perturbed}
 containing the standard deviation (for numeric columns) or the factor levels
 (for factor columns)}
 
-\item{fitObj}{the model for which we are plotting changes in variables}
-
 \item{type}{the type of fitObj: "classification" or "regression"}
 
 \item{spread}{a number representing how widely to vary the variables}
 
+\item{extra}{---- TODO: REPLACE PARAMETER}
+
 \item{grid}{An ordered pair of integers (rows, columns) which determines the 
 number of plots to display at once. The first entry determines the number of
 rows and the second determines the number of columns.}
+
+\item{fitObj}{the model for which we are plotting changes in variables}
 }
 \references{
 \url{http://healthcare.ai}

@@ -127,7 +127,8 @@ getLinearCoeffs = function(linearModel, orderByMagnitude = FALSE) {
 #' @title
 #' Plot the output of a model as each coefficient changes individually
 #'
-#' @description 
+#' @description Plot the output of a model as each coefficient changes 
+#' individually
 #' @param baseRow a row in a data frame, used as the reference from which to 
 #' vary the variables
 #' @param modifiableCols a vector of column names corresponding to the columns
@@ -138,7 +139,7 @@ getLinearCoeffs = function(linearModel, orderByMagnitude = FALSE) {
 #' @param fitObj the model for which we are plotting changes in variables
 #' @param type the type of fitObj: "classification" or "regression"
 #' @param spread a number representing how widely to vary the variables
-#' @param extra
+#' @param extra ---- TODO: REPLACE PARAMETER
 #' @param grid An ordered pair of integers (rows, columns) which determines the 
 #' number of plots to display at once. The first entry determines the number of
 #' rows and the second determines the number of columns.

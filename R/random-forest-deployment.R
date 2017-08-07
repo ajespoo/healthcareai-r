@@ -43,6 +43,14 @@
 #' @section \code{$getOutDf()}:
 #' Returns the output dataframe. \cr
 #' \emph{Usage:} \code{$getOutDf()} 
+#' @section \code{$getModifiableFactorsDf()}:
+#' Return the grain, all modifiable factors, and their weights. \cr
+#' \emph{Usage:} \code{$getTopFactors(rowNumbers = NULL, grainIDs = NULL)} \cr
+#' Params: \cr
+#'   - \code{rowNumbers:} The row numbers of rows to display. \cr
+#'   - \code{grainIDs:} The grain column ids of rows to display. \cr
+#'   If neither \code{rowNumbers} nor \code{grainIDs} is specified, the entire 
+#'   data frame will be used.
 #' @export
 #' @seealso \code{\link{healthcareai}}
 #' @examples
