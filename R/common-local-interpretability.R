@@ -193,10 +193,9 @@ plotVariableEffects = function(baseRow,
     } else {
       yAxisLabel <- "Response"
       diff <- as.numeric(abs(rowPred - LMrowPred))
-      yMin <- as.numeric(min(labels$predictions))
-      yMax <- as.numeric(max(labels$predictions))
-      ySD <- as.numeric(sd(labels$predictions))
-      yAxisLimits <- c(2*yMin - yMax - diff, 2*yMax - yMin + diff)
+      topWT <- 1.2*max(abs(extra[grepl("Modify[0123456789]+WT", names(extra))]))
+      yAxisLimits <- c(as.numeric(rowPred) - topWT - diff, 
+                       as.numeric(rowPred) + topWT + diff)
     }
     
     plot(singleVarDf[[col]], labels$predictions, type = "l",
