@@ -162,10 +162,10 @@ plotVariableEffects = function(baseRow,
     displayCols <- min(4, numberOfPlots)
     grid <- c(displayRows, displayCols)
   }
-  oldGraphicalParams <- par()$mfrow
-  
+  oldGraphicalParams1 <- par()$mfrow
+  oldGraphicalParams2 <- par()$oma
   tryCatch({
-    par(mfrow = grid)
+    par(mfrow = grid, oma = c(2,2,2,2))
     
     for (col in modifiableCols) {
       # Build dataframe with variation in a single column
@@ -231,12 +231,13 @@ plotVariableEffects = function(baseRow,
             }
           }
         }
+      mtext(paste("Grain Column ID:", extra$GrainID), outer = TRUE, cex = 1)
       }
     }
   }, error = function(e) {
     message(e)
   }, finally =  {
     # Reset the graphics parameters even if an error was raised
-    par(mfrow = oldGraphicalParams)
+    par(mfrow = oldGraphicalParams1, oma = oldGraphicalParams2)
   })
 }
