@@ -26,11 +26,12 @@ SupervisedModelDeploymentParams <- R6Class("SupervisedModelDeploymentParams",
     personCol = "",
     impute = TRUE,
     debug = FALSE,
-    cores = 4,
+    cores = 2,
     rfmtry = 0,
     trees = 201,
     xgb_numberOfClasses = NA,
     xgb_targetNames = NA,
+    modelName = NULL,
 
     #Constructor
     initialize = function() {

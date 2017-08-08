@@ -7,24 +7,42 @@
 #' \item Push these predictions to SQL Server
 #' }
 #' @docType class
-#' @usage RandomForestDeployment(type, df, grainCol, testWindowCol, 
-#' predictedCol, impute, debug)
+#' @usage RandomForestDeployment(type, df, grainCol, predictedCol, impute, debug, cores, modelName)
 #' @import caret
 #' @import doParallel
 #' @importFrom R6 R6Class
 #' @import ranger
 #' @param type The type of model (either 'regression' or 'classification')
-#' @param df Dataframe whose columns are used for calc.
+#' @param df Dataframe whose columns are used for new predictions. Data structure should match development as 
+#' much as possible. Number of columns, names, types, grain, and predicted must be the same.
 #' @param grainCol The dataframe's column that has IDs pertaining to the grain
-#' @param testWindowCol (depreciated) All data now receives a prediction
-#' @param predictedCol Column that you want to predict. If you're doing
-#' classification then this should be Y/N.
-#' @param impute For training df, set all-column imputation to F or T.
-#' This uses mean replacement for numeric columns
-#' and most frequent for factorized columns.
-#' F leads to removal of rows containing NULLs.
+#' @param predictedCol Column that you want to predict.
+#' @param impute For training df, set all-column imputation to T or F.
+#' If T, this uses values calculated in development.
+#' F leads to removal of rows containing NULLs and is not recommended.
 #' @param debug Provides the user extended output to the console, in order
-#' to monitor the calculations throughout. Use T or F.
+#' @param cores Number of cores you'd like to use.  Defaults to 2.
+#' @param modelName Optional string. Can specify the model name. If used, you must load the same one in the deploy step.
+#' @section Methods: 
+#' The above describes params for initializing a new randomForestDeployment class with 
+#' \code{$new()}. Individual methods are documented below.
+#' @section \code{$new()}:
+#' Initializes a new random forest deployment class using the 
+#' parameters saved in \code{p}, documented above. This method loads, cleans, and prepares data for
+#' generating predictions. \cr
+#' \emph{Usage:} \code{$new(p)}
+#' @section \code{$deploy()}:
+#' Generate new predictions, calculate top factors, and prepare the output dataframe. \cr
+#' \emph{Usage:} \code{$deploy()} 
+#' @section \code{$getTopFactors()}:
+#' Return the grain, all top factors, and their weights. \cr
+#' \emph{Usage:} \code{$getTopFactors(numberOfFactors = NA, includeWeights = FALSE)} \cr
+#' Params: \cr
+#'   - \code{numberOfFactors:} returns the top \code{n} factors. Defaults to all factors. \cr
+#'   - \code{includeWeights:} If \code{TRUE}, returns weights associated with each factor.
+#' @section \code{$getOutDf()}:
+#' Returns the output dataframe. \cr
+#' \emph{Usage:} \code{$getOutDf()} 
 #' @export
 #' @seealso \code{\link{healthcareai}}
 #' @examples
@@ -401,9 +419,10 @@ RandomForestDeployment <- R6Class("RandomForestDeployment",
     outDf = NA,
     
     fitRF = NA,
-    fitLogit = NA,
     predictions = NA,
     LIMEExplainer = NA,
+    modelName = 'RF',
+    algorithmName = 'RandomForest',
 
     # functions
     # Perform prediction
@@ -433,7 +452,7 @@ RandomForestDeployment <- R6Class("RandomForestDeployment",
 
     calculateCoeffcients = function() {
       # Do semi-manual calc to rank cols by order of importance
-      coeffTemp <- private$fitLogit$coefficients
+      coeffTemp <- self$modelInfo$fitLogit$coefficients
 
       if (isTRUE(self$params$debug)) {
         cat('Coefficients for the default logit (for ranking var import)', '\n')
@@ -469,50 +488,7 @@ RandomForestDeployment <- R6Class("RandomForestDeployment",
 
       if (isTRUE(self$params$debug)) {
         cat('Data frame after getting column importance ordered', '\n')
-        print(head(private$orderedFactors, n=10))
-      }
-    },
-
-    createDf = function() {
-      dtStamp <- as.POSIXlt(Sys.time())
-
-      # Combine grain.col, prediction, and time to be put back into SAM table
-      private$outDf <- data.frame(
-        0,                                 # BindingID
-        'R',                               # BindingNM
-        dtStamp,                           # LastLoadDTS
-        private$grainTest,                 # GrainID
-        private$predictions,               # PredictedProbab
-        # need three lines for case of single prediction
-        private$orderedFactors[, 1],     # Top 1 Factor
-        private$orderedFactors[, 2],     # Top 2 Factor
-        private$orderedFactors[, 3])     # Top 3 Factor
-
-      predictedResultsName = ""
-      if (self$params$type == 'classification') {
-        predictedResultsName = "PredictedProbNBR"
-      } else if (self$params$type == 'regression') {
-        predictedResultsName = "PredictedValueNBR"
-      }
-
-      colnames(private$outDf) <- c(
-        "BindingID",
-        "BindingNM",
-        "LastLoadDTS",
-        self$params$grainCol,
-        predictedResultsName,
-        "Factor1TXT",
-        "Factor2TXT",
-        "Factor3TXT"
-      )
-      
-      # Remove row names so df can be written to DB
-      # TODO: in writeData function, find how to ignore row names
-      rownames(private$outDf) <- NULL
-
-      if (isTRUE(self$params$debug)) {
-        cat('Dataframe with predictions:', '\n')
-        cat(str(private$outDf), '\n')
+        print(head(private$orderedFactors, n = 10))
       }
     }
   ),
@@ -537,19 +513,9 @@ RandomForestDeployment <- R6Class("RandomForestDeployment",
     deploy = function() {
 
       # Try to load the model
-      tryCatch({
-        load("rmodel_var_import_RF.rda")  # Produces fitLogit object
-        private$fitLogit <- fitLogit
-        load("rmodel_probability_RF.rda") # Produces fit object (for probability)
-        private$fitRF <- fitObj
-        load("rexplainer_RF.rda")  # Produces LIME
-        private$LIMEExplainer <- explainer
-       }, error = function(e) {
-        # temporary fix until all models are working.
-        stop('You must use a saved model. Run random forest development to train 
-              and save the model, then random forest deployment to make predictions.
-              See ?RandomForestDevelopment')
-      })
+      private$LIMEExplainer <- self$modelInfo$LIMEExplainer
+      private$fitRF <- private$fitObj
+      private$fitObj <- NULL
       
       # Make sure factor columns have the training data factor levels
       super$formatFactorColumns()
@@ -572,7 +538,7 @@ RandomForestDeployment <- R6Class("RandomForestDeployment",
       private$calculateOrderedFactors()
 
       # create dataframe for output
-      private$createDf()
+      super$createDf()
     },
     
     # Surface outDf as attribute for export to Oracle, MySQL, etc
