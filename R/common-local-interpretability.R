@@ -163,66 +163,80 @@ plotVariableEffects = function(baseRow,
     grid <- c(displayRows, displayCols)
   }
   oldGraphicalParams <- par()$mfrow
-  par(mfrow = grid)
   
-  for (col in modifiableCols) {
-    # Build dataframe with variation in a single column
-    if (is.numeric(baseRow[[col]])) {
-      # Add column with variation to df
-      sd <- info[[col]]
-      singleVarDf <- data.frame(seq(from = baseRow[[col]] - sd*spread,
-                                    to = baseRow[[col]] + sd*spread,
-                                    length.out = 100))
-    } else {
-      singleVarDf <- data.frame(factor(info[[col]], levels = info[[col]]))
-    }
-    names(singleVarDf) <- c(col)
+  tryCatch({
+    par(mfrow = grid)
     
-    # Add the other columns
-    for (col2 in names(baseRow)) {
-      if (col2 != col) singleVarDf[[col2]] <- baseRow[[col2]]
-    }
-    
-    labels <- predictFunction(singleVarDf)
-    rowPred <- predictFunction(baseRow)
-    LMrowPred <- extra$LMPrediction
-    
-    # plot the effect of changing the variable
-    if (type == "classification") {
-      yAxisLabel <- "Probability"
-      yAxisLimits <- c(0,1)
-    } else {
-      yAxisLabel <- "Response"
-      diff <- as.numeric(abs(rowPred - LMrowPred))
-      topWT <- 1.2*max(abs(extra[grepl("Modify[0123456789]+WT", names(extra))]))
-      yAxisLimits <- c(as.numeric(rowPred) - topWT - diff, 
-                       as.numeric(rowPred) + topWT + diff)
-    }
-    
-    plot(singleVarDf[[col]], labels$predictions, type = "l",
-         ylim = yAxisLimits, xlab = col, ylab = yAxisLabel)
-    
-    abline(h = rowPred, lty = "dashed")
-    points(baseRow[[col]], rowPred, pch = 16, cex = 1.5)
-    
-    if (!is.null(extra)) {
-      points(baseRow[[col]],extra$LMPrediction, pch = 8, col = "red")
+    for (col in modifiableCols) {
+      # Build dataframe with variation in a single column
       if (is.numeric(baseRow[[col]])) {
-        slope <- as.numeric(extra[which(extra == col) + 1])
-        xCoords <- baseRow[[col]] + 0.5*sd*spread*c(-1, 1)
-        yCoords <- slope*(xCoords - baseRow[[col]]) + LMrowPred
-        lines(xCoords, yCoords, col = "red")
+        # Add column with variation to df
+        sd <- info[[col]]
+        singleVarDf <- data.frame(seq(from = baseRow[[col]] - sd*spread,
+                                      to = baseRow[[col]] + sd*spread,
+                                      length.out = 100))
       } else {
-        for (level in info[[col]]) {
-          if (level != baseRow[[col]]) {
-            slope <- as.numeric(extra[which(extra == paste0(col, level)) + 1])
-            xCoord <- factor(level, levels = info[[col]])
-            yCoord <- slope + extra$LMPrediction
-            points(xCoord, y = yCoord, pch = 1, col = "red")
+        singleVarDf <- data.frame(factor(info[[col]], levels = info[[col]]))
+      }
+      names(singleVarDf) <- c(col)
+      
+      # Add the other columns
+      for (col2 in names(baseRow)) {
+        if (col2 != col) singleVarDf[[col2]] <- baseRow[[col2]]
+      }
+      
+      labels <- predictFunction(singleVarDf)
+      rowPred <- predictFunction(baseRow)
+      if (!is.null(extra)) {
+        LMrowPred <- extra$LMPrediction
+      }
+      
+      # plot the effect of changing the variable
+      if (type == "classification") {
+        yAxisLabel <- "Probability"
+        yAxisLimits <- c(0,1)
+      } else {
+        yAxisLabel <- "Response"
+        if (!is.null(extra)) {
+          diff <- as.numeric(abs(rowPred - LMrowPred))
+          topWT <- 1.2*max(abs(extra[grepl("Modify[0123456789]+WT", 
+                                           names(extra))]))
+          yAxisLimits <- c(as.numeric(rowPred) - topWT - diff, 
+                           as.numeric(rowPred) + topWT + diff)
+        } else {
+          yAxisLimits <- 1.2*c(min(as.numeric(labels), max(as.numeric(labels))))
+        }
+      }
+      
+      plot(singleVarDf[[col]], labels$predictions, type = "l",
+           ylim = yAxisLimits, xlab = col, ylab = yAxisLabel)
+      
+      abline(h = rowPred, lty = "dashed")
+      points(baseRow[[col]], rowPred, pch = 16, cex = 1.5)
+      
+      if (!is.null(extra)) {
+        points(baseRow[[col]],extra$LMPrediction, pch = 8, col = "red")
+        if (is.numeric(baseRow[[col]])) {
+          slope <- as.numeric(extra[which(extra == col) + 1])
+          xCoords <- baseRow[[col]] + 0.5*sd*spread*c(-1, 1)
+          yCoords <- slope*(xCoords - baseRow[[col]]) + LMrowPred
+          lines(xCoords, yCoords, col = "red")
+        } else {
+          for (level in info[[col]]) {
+            if (level != baseRow[[col]]) {
+              slope <- as.numeric(extra[which(extra == paste0(col, level)) + 1])
+              xCoord <- factor(level, levels = info[[col]])
+              yCoord <- slope + extra$LMPrediction
+              points(xCoord, y = yCoord, pch = 1, col = "red")
+            }
           }
         }
       }
     }
-  }
-  par(mfrow = oldGraphicalParams)
+  }, error = function(e) {
+    message(e)
+  }, finally =  {
+    # Reset the graphics parameters even if an error was raised
+    par(mfrow = oldGraphicalParams)
+  })
 }

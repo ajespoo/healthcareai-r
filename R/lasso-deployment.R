@@ -546,6 +546,9 @@ LassoDeployment <- R6Class(
 
       # create dataframe for output
       super$createDf()
+      
+      # Create modifiable factors df
+      super$createModifiableFactorsDf()
     },
     
     # Surface outDf as attribute for export to Oracle, MySQL, etc

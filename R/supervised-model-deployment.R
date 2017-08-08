@@ -35,6 +35,8 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
   predictedVals = NA,
   modelName = NA,
   clustersOnCores = NA,
+  
+  modifiableFactorsDf = NA,
 
   ###########
   # Functions
@@ -335,6 +337,65 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
     }
   },
   
+  # Construct the modifiable factors df for the given row numbers
+  computeModifiableFactors = function(rowNumbers) {
+    grainColumn <- private$grainTest[rowNumbers]
+    
+    # Build the dataframe of factors and weights
+    dfList <- lapply(1:length(rowNumbers), function(i) {
+      
+      thisRow <- self$params$df[rowNumbers[i], ]
+      
+      # Get perturbed data
+      dfTemp <- localPerturbations(
+        baseRow = thisRow,
+        modifiableCols = self$params$modifiableVariables,
+        info = self$modelInfo$featureDistributions,
+        size = 2500,
+        spread = 1/4,
+        grainCol = self$params$grainCol, 
+        predictedCol = self$params$predictedCol)
+      
+      # Get local linear approximation
+      linA <- localLinearApproximation(baseRow = thisRow, 
+                                       predictFunction = self$newPredictions,
+                                       localDf = dfTemp)
+      
+      # Get the linear model's prediction for this row
+      linAPrediction <- predict(linA, newdata = thisRow)
+      
+      # Get the ordered linear model coefficients
+      coefs <- getLinearCoeffs(linearModel = linA, 
+                               orderByMagnitude = T)
+      
+      # Add factors and weights to dataframe
+      tmp <- lapply(seq_along(coefs), function(i) 
+        structure(data.frame(names(coefs)[i], signif(coefs[i], 4), 
+                             row.names = NULL, stringsAsFactors = FALSE), 
+                  names = paste0("Modify", i, c("TXT", "WT"))))
+      tmp["LMPrediction"] <- signif(linAPrediction, 4)
+      tmp["LMIntercept"] <- signif(attr(coefs, "intercept"), 4)
+      
+      return(do.call(cbind, tmp))
+    })
+    
+    # Combine grain column and modifiable factors into a dataframe
+    return(cbind(data.frame(GrainID = grainColumn), do.call(rbind, dfList)))
+  },
+  
+  # Create the dataframe of modifiable factors
+  # TODO: make it possible to do this a few rows at a time
+  createModifiableFactorsDf = function() {
+    if (!is.null(self$params$modifiableVariables)) {
+      
+      rowNumbers <- 1:length(private$grainTest)
+      
+      tempDf <- private$computeModifiableFactors(rowNumbers)
+
+      private$modifiableFactorsDf <- tempDf
+    }
+  },
+  
   loadModelAndInfo = function(modelFullName) {
     # Try to load the model
     tryCatch({
@@ -390,6 +451,7 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
     deploy = function() {
     },
     
+    # Getter function for modifiableFactors
     getModifiableFactorsDf = function(rowNumbers = NULL, grainIDs = NULL) {
       if (length(rowNumbers) == 0 & length(grainIDs) == 0) {
         rowNumbers = 1:length(private$grainTest)
@@ -404,52 +466,9 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
         grainColumn <- private$grainTest
         rowNumbers <- (1:length(grainColumn))[grainColumn %in% grainIDs]
       }
-      grainColumn <- private$grainTest[rowNumbers]
-      
-      # Build the dataframe of factors and weights
-      dfList <- lapply(1:length(rowNumbers), function(i) {
-        
-        thisRow <- self$params$df[rowNumbers[i], ]
-        
-        # Get perturbed data
-        dfTemp <- localPerturbations(
-          baseRow = thisRow,
-          modifiableCols = self$params$modifiableVariables,
-          info = self$modelInfo$featureDistributions,
-          size = 2500,
-          spread = 1/4,
-          grainCol = self$params$grainCol, 
-          predictedCol = self$params$predictedCol)
-        
-        # Get local linear approximation
-        linA <- localLinearApproximation(baseRow = thisRow, 
-                                         predictFunction = self$newPredictions,
-                                         localDf = dfTemp)
-        
-        # Get the linear model's prediction for this row
-        linAPrediction <- predict(linA, newdata = thisRow)
-        
-        # Get the ordered linear model coefficients
-        coefs <- getLinearCoeffs(linearModel = linA, 
-                                 orderByMagnitude = T)
-
-        # Add factors and weights to dataframe
-        tmp <- lapply(seq_along(coefs), function(i) 
-          structure(data.frame(names(coefs)[i], signif(coefs[i], 4), 
-                               row.names = NULL), 
-                    names = paste0("Modify", i, c("TXT", "WT"))))
-        tmp["LMPrediction"] <- signif(linAPrediction, 4)
-        tmp["LMIntercept"] <- signif(attr(coefs, "intercept"), 4)
-        
-        return(do.call(cbind, tmp))
-      })
-
-      # Combine grain column and modifiable factors into a dataframe
-      modifiableFactorsDf <- cbind(data.frame(GrainId = grainColumn), 
-                                   do.call(rbind, dfList))
       
       # Return dataframe of modifiable factors and their weights
-      return(modifiableFactorsDf)
+      return(private$modifiableFactorsDf[rowNumbers, ])
     },
     
     plotSingleVariables = function(rowNumber = NULL, 
@@ -459,16 +478,20 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
         stop("Must provide a row number or grain column ID")
       } else if (length(grainID) == 0) {
         baseRow <- self$params$df[rowNumber, ]
+        modDfRow <- private$modifiableFactorsDf[rowNumber, ]
       } else {
         baseRow <- self$params$df[private$grainTest == grainID, ]
+        modDfRow <- private$modifiableFactorsDf[private$grainTest == grainID, ]
+      }
+      if (is.null(self$params$modifiableVariables)) {
+        stop("No modifiable variables set")
       }
       plotVariableEffects(baseRow = baseRow,
                           modifiableCols = self$params$modifiableVariables,
                           info = self$modelInfo$featureDistributions,
                           predictFunction = self$newPredictions,
                           type = self$params$type,
-                          extra = self$getModifiableFactorsDf(rowNumbers = rowNumber, 
-                                                              grainIDs = grainID),
+                          extra = modDfRow,
                           ...)
     },
     
