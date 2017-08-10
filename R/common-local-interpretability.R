@@ -139,7 +139,8 @@ getLinearCoeffs = function(linearModel, orderByMagnitude = FALSE) {
 #' @param fitObj the model for which we are plotting changes in variables
 #' @param type the type of fitObj: "classification" or "regression"
 #' @param spread a number representing how widely to vary the variables
-#' @param extra ---- TODO: REPLACE PARAMETER
+#' @param modifiableDfRow the row in ModifiableFactorsDf corresponding to 
+#' baseRow
 #' @param grid An ordered pair of integers (rows, columns) which determines the 
 #' number of plots to display at once. The first entry determines the number of
 #' rows and the second determines the number of columns.
@@ -153,7 +154,7 @@ plotVariableEffects = function(baseRow,
                                predictFunction,
                                type,
                                spread = 1/2,
-                               extra = NULL,
+                               modifiableDfRow = NULL,
                                grid = NULL) {
   # By default, display at most 8 graphs
   if (is.null(grid)) {
@@ -187,8 +188,8 @@ plotVariableEffects = function(baseRow,
       
       labels <- predictFunction(singleVarDf)
       rowPred <- predictFunction(baseRow)
-      if (!is.null(extra)) {
-        LMrowPred <- extra$LMPrediction
+      if (!is.null(modifiableDfRow)) {
+        LMrowPred <- modifiableDfRow$LMPrediction
       }
       
       # plot the effect of changing the variable
@@ -197,10 +198,10 @@ plotVariableEffects = function(baseRow,
         yAxisLimits <- c(0,1)
       } else {
         yAxisLabel <- "Response"
-        if (!is.null(extra)) {
+        if (!is.null(modifiableDfRow)) {
           diff <- as.numeric(abs(rowPred - LMrowPred))
-          topWT <- 1.2*max(abs(extra[grepl("Modify[0123456789]+WT", 
-                                           names(extra))]))
+          topWT <- 1.2*max(abs(modifiableDfRow[grepl("Modify[0123456789]+WT", 
+                                           names(modifiableDfRow))]))
           yAxisLimits <- c(as.numeric(rowPred) - topWT - diff, 
                            as.numeric(rowPred) + topWT + diff)
         } else {
@@ -214,24 +215,28 @@ plotVariableEffects = function(baseRow,
       abline(h = rowPred, lty = "dashed")
       points(baseRow[[col]], rowPred, pch = 16, cex = 1.5)
       
-      if (!is.null(extra)) {
-        points(baseRow[[col]],extra$LMPrediction, pch = 8, col = "red")
+      if (!is.null(modifiableDfRow)) {
+        points(baseRow[[col]],modifiableDfRow$LMPrediction, 
+               pch = 8, col = "red")
         if (is.numeric(baseRow[[col]])) {
-          slope <- as.numeric(extra[which(extra == col) + 1])
+          numIndex <- which(modifiableDfRow == col) + 1
+          slope <- as.numeric(modifiableDfRow[numIndex])
           xCoords <- baseRow[[col]] + 0.5*sd*spread*c(-1, 1)
           yCoords <- slope*(xCoords - baseRow[[col]]) + LMrowPred
           lines(xCoords, yCoords, col = "red")
         } else {
           for (level in info[[col]]) {
             if (level != baseRow[[col]]) {
-              slope <- as.numeric(extra[which(extra == paste0(col, level)) + 1])
+              factorIndex <- which(modifiableDfRow == paste0(col, level)) + 1
+              slope <- as.numeric(modifiableDfRow[factorIndex])
               xCoord <- factor(level, levels = info[[col]])
-              yCoord <- slope + extra$LMPrediction
+              yCoord <- slope + modifiableDfRow$LMPrediction
               points(xCoord, y = yCoord, pch = 1, col = "red")
             }
           }
         }
-      mtext(paste("Grain Column ID:", extra$GrainID), outer = TRUE, cex = 1)
+      mtext(paste("Grain Column ID:", modifiableDfRow$GrainID), 
+            outer = TRUE, cex = 1)
       }
     }
   }, error = function(e) {

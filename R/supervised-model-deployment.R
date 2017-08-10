@@ -385,14 +385,29 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
   
   # Create the dataframe of modifiable factors
   # TODO: make it possible to do this a few rows at a time
-  createModifiableFactorsDf = function() {
+  createModifiableFactorsDf = function(rowNumbers) {
     if (!is.null(self$params$modifiableVariables)) {
       
-      rowNumbers <- 1:length(private$grainTest)
+      allRowNumbers <- 1:length(private$grainTest)
       
-      tempDf <- private$computeModifiableFactors(rowNumbers)
-
-      private$modifiableFactorsDf <- tempDf
+      if (is.null(nrow(private$modifiableFactorsDf))) {
+        tempDf <- private$computeModifiableFactors(rowNumbers)
+        private$modifiableFactorsDf <- tempDf
+      } else {
+        tempDf1 <- private$modifiableFactorsDf
+        # Determine which rows are already in modifiableFactorsDf
+        oldGrains <- private$grainTest %in% private$modifiableFactorsDf$GrainID
+        alreadyComputed <- allRowNumbers[oldGrains]
+        rowNumbers <- rowNumbers[!(rowNumbers %in% alreadyComputed)]
+        if (length(rowNumbers) > 0) {
+          # Compute new rows
+          tempDf2 <- private$computeModifiableFactors(rowNumbers)
+          # Combine with old df and arrange by grainID
+          tempDf3 <- rbind(tempDf1, tempDf2)
+          private$modifiableFactorsDf <- tempDf3[order(tempDf3$GrainID), ]
+          row.names(private$modifiableFactorsDf) <- NULL
+        }
+      }
     }
   },
   
@@ -452,7 +467,9 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
     },
     
     # Getter function for modifiableFactors
-    getModifiableFactorsDf = function(rowNumbers = NULL, grainIDs = NULL) {
+    getModifiableFactorsDf = function(rowNumbers = NULL, 
+                                      grainIDs = NULL,
+                                      computeMissing = FALSE) {
       if (length(rowNumbers) == 0 & length(grainIDs) == 0) {
         rowNumbers = 1:length(private$grainTest)
       }
@@ -466,6 +483,9 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
         grainColumn <- private$grainTest
         rowNumbers <- (1:length(grainColumn))[grainColumn %in% grainIDs]
       }
+      
+      # Determine rows not present in modifiableFactorsDf
+      #### TODO
       
       # Return dataframe of modifiable factors and their weights
       return(private$modifiableFactorsDf[rowNumbers, ])
