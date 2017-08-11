@@ -386,13 +386,16 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
   # Create the dataframe of modifiable factors
   # TODO: make it possible to do this a few rows at a time
   createModifiableFactorsDf = function(rowNumbers) {
+    
     if (!is.null(self$params$modifiableVariables)) {
       
       allRowNumbers <- 1:length(private$grainTest)
       
       if (is.null(nrow(private$modifiableFactorsDf))) {
-        tempDf <- private$computeModifiableFactors(rowNumbers)
-        private$modifiableFactorsDf <- tempDf
+        if (!is.null(rowNumbers)) {
+          tempDf <- private$computeModifiableFactors(rowNumbers)
+          private$modifiableFactorsDf <- tempDf
+        }
       } else {
         tempDf1 <- private$modifiableFactorsDf
         # Determine which rows are already in modifiableFactorsDf
@@ -483,12 +486,45 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
         grainColumn <- private$grainTest
         rowNumbers <- (1:length(grainColumn))[grainColumn %in% grainIDs]
       }
+
+      if (is.null(nrow(private$modifiableFactorsDf))) {
+        if (computeMissing) {
+          cat("Computing modifiable factors... \n\n")
+          private$createModifiableFactorsDf(rowNumbers = rowNumbers)
+        } else {
+          stop(paste("No modifiable factors were computed in deploy.", 
+                     "You may compute them by setting computeMissing = TRUE."))
+        }
+      }
       
       # Determine rows not present in modifiableFactorsDf
       #### TODO
+      newRows <- rowNumbers[!(private$grainTest[rowNumbers]
+                              %in% private$modifiableFactorsDf$GrainID)]
+      newGrains <- private$grainTest[newRows]
       
+      if (length(newRows) > 0) {
+        newRowTxt <- paste0("Modifiable factors were not available for ",
+                            length(newRows), " of the rows you have selected.")
+        if (length(newRows) < 20) {
+          newRowTxt <- paste0(newRowTxt, '\nGrain IDs of new rows: ', 
+                              paste(newGrains, collapse = " "))
+        }
+        if (computeMissing) {
+          newRowTxt <- paste0(newRowTxt, "\nComputing modifiable factors...\n\n")
+          cat(newRowTxt)
+          private$createModifiableFactorsDf(rowNumbers = rowNumbers)
+        } else {
+          newRowTxt <- paste0(newRowTxt, "\nTo compute modifiable factors for ",
+                              "these rows, use computeMissing = TRUE.\n\n")
+          cat(newRowTxt)
+          rowNumbers <- rowNumbers[!(rowNumbers %in% newRows)]
+        }
+      }
+
       # Return dataframe of modifiable factors and their weights
-      return(private$modifiableFactorsDf[rowNumbers, ])
+      return(private$modifiableFactorsDf[private$modifiableFactorsDf$GrainID 
+                                         %in% private$grainTest[rowNumbers], ])
     },
     
     plotSingleVariables = function(rowNumber = NULL, 

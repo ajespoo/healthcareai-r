@@ -559,18 +559,7 @@ RandomForestDeployment <- R6Class("RandomForestDeployment",
       
       # Create modifiable factors df
       #super$createModifiableFactorsDf(1:length(private$grainTest))
-      browser()
-      private$modifiableFactorsDf
-      super$createModifiableFactorsDf(5:6)
-      private$modifiableFactorsDf
-      super$createModifiableFactorsDf(4:6)
-      private$modifiableFactorsDf
-      super$createModifiableFactorsDf(1)
-      private$modifiableFactorsDf
-      super$createModifiableFactorsDf(1:3)
-      private$modifiableFactorsDf
-      super$createModifiableFactorsDf(4:6)
-      private$modifiableFactorsDf
+      super$createModifiableFactorsDf(NULL)
     },
     
     # Surface outDf as attribute for export to Oracle, MySQL, etc
