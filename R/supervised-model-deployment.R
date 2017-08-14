@@ -539,6 +539,11 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
         baseRow <- self$params$df[private$grainTest == grainID, ]
         modDfRow <- private$modifiableFactorsDf[private$grainTest == grainID, ]
       }
+      if (is.na(modDfRow$GrainID)) {
+        stop(paste0("No modifiable factors were computed for this row.\n",
+                    "You may use getModifiableFactorsDF with ",
+                    "computeMissing = TRUE to compute these."))
+      }
       if (is.null(self$params$modifiableVariables)) {
         stop("No modifiable variables set")
       }
@@ -547,7 +552,7 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
                           info = self$modelInfo$featureDistributions,
                           predictFunction = self$newPredictions,
                           type = self$params$type,
-                          extra = modDfRow,
+                          modifiableDfRow = modDfRow,
                           ...)
     },
     
