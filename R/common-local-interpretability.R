@@ -246,3 +246,74 @@ plotVariableEffects = function(baseRow,
     par(mfrow = oldGraphicalParams1, oma = oldGraphicalParams2)
   })
 }
+
+#' @title
+#' Get a percentile interval.
+#'
+#' @description 
+#' Returns the lower and upper ends of an interval roughly \code{range} 
+#' percentiles above and below \code{x}.
+#' 
+#' We assume that the vector of percentiles was computed using sample data so
+#' that the minimum and maximum values may not truly represent the minimum and
+#' maximum values of the underlying distribution. If \code{x} lies in the k-th 
+#' percentile and k - \code{range} < 0 then a -1% "percentile" value is 
+#' computed from 0% - (1% - 0%) and the range (-1%, (2*\code{range} - 1)%) is 
+#' returned. Similarly, if k + \code{range} > 100, then a 101% "percentile" is 
+#' computed.
+#' 
+#' @param x the value (of a continuous variable) around which to build the 
+#' interval
+#' @param percentiles a vector of percentiles of length 101, with one entry 
+#' for each percentile 0%, 1%, 2%, ..., 99%, 100%
+#' @param range an integer represententing how many percentiles to include in
+#' each direction, so if \code{x} lies in the k-th percentile, then the
+#' interval will range from the (k - \code{range})-th percentile to the (k + 
+#' \code{range})-th percentile.
+#'
+#' @return a 2-dimensional vector consisting of the lower and upper endpoints
+#' of the interval
+#'
+#' @export
+#' @references \url{http://healthcare.ai}
+#' @seealso \code{\link{healthcareai}}
+#' @examples 
+#' # A sample from a normal distribution
+#' normal_data <- rnorm(10000, mean = 0, sd = 1)
+#'
+#' # A vector of percentiles 0%, 1%, 2%, ..., 99%, 100% for the data
+#' sample_percentiles <- quantile(normal_data, seq(0, 1, 0.01))
+#'
+#' # Check that ~68% of a normal distribution's mass is within 1 standard
+#' # deviation of the mean.
+#' percentileInterval(0, sample_percentiles, range = 34)
+#' 
+#' # Check that ~95% of a normal distribution's mass is within 2 standard
+#' # deviations of the mean.
+#' percentileInterval(0, sample_percentiles, range = 48)
+#'
+#' # Get an interval around 1, extending 10 percentiles in each direction
+#' percentileInterval(1, sample_percentiles, range = 10)
+#' 
+#' # If x is near one end of the distribution, a placeholder -1% or 101% 
+#' # "percentile" value is created
+#' percentileInterval(2, sample_percentiles, range = 10)
+percentileInterval = function(x, percentiles, range = 20) {
+  # if x is very small, make fake -1% percentile
+  if (x < percentiles[1 + range]) {
+    lower <- 2*percentiles[1] - percentiles[2]
+    upper <- percentiles[2*range]
+    names(lower) <- "-1%"
+  # if x is very large, make fake 101% percentile
+  } else if (x > percentiles[101 - range]) {
+    lower <- percentiles[101 - 2*range]
+    upper <- 2*percentiles[101] - percentiles[100]
+    names(upper) <- "101%"
+  # otherwise, use the expected percentiles
+  } else {
+    index <-  which.min(abs(percentiles - x)) # closest percentile to x
+    lower <- percentiles[index - range]
+    upper <- percentiles[index + range]
+  }
+  return(c(lower, upper))
+}
