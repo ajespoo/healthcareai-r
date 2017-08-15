@@ -163,9 +163,10 @@ getScaledCoeffs = function(linearModel,
 plotVariableEffects = function(baseRow, 
                                modifiableCols,
                                info,
+                               info2,
                                predictFunction,
                                type,
-                               spread = 1/2,
+                               spread = 2,
                                modifiableDfRow = NULL,
                                grid = NULL) {
   # By default, display at most 8 graphs
@@ -180,14 +181,41 @@ plotVariableEffects = function(baseRow,
   tryCatch({
     par(mfrow = grid, oma = c(2,2,2,2))
     
+    # NEW (1)
+    base_prediction <- predictFunction(baseRow)$predictions
+    
     for (col in modifiableCols) {
       # Build dataframe with variation in a single column
       if (is.numeric(baseRow[[col]])) {
         # Add column with variation to df
         sd <- info[[col]]
-        singleVarDf <- data.frame(seq(from = baseRow[[col]] - sd*spread,
-                                      to = baseRow[[col]] + sd*spread,
+        singleVarDf <- data.frame(seq(from = info2[[col]][1],
+                                      to = info2[[col]][101],
                                       length.out = 100))
+        
+        # NEW (5)
+        my_interval <- percentileInterval(baseRow[[col]], info2[[col]])
+        my_df <- singleNumericVariableDf(baseRow, col, my_interval, 
+                                         center = baseRow[[col]])
+        my_predictions <- predictFunction(newData = my_df)
+        my_lm <- lm(my_predictions$predictions ~ my_df[[col]])
+        my_slope <- my_lm$coefficients[2]
+        my_intercept <- my_lm$coefficients[1]
+        
+        # NEW (lots)
+        if (my_slope < 0) {
+          new_low <- baseRow[[col]] - 0.25*(my_interval[2] - baseRow[[col]])
+          my_interval2 <- c(new_low, my_interval[2])
+        } else {
+          new_high <- baseRow[[col]] + 0.25*(baseRow[[col]] - my_interval[1])
+          my_interval2 <- c(my_interval[1], new_high)
+        }
+        my_df2 <- singleNumericVariableDf(baseRow, col, my_interval2)
+        my_predictions2 <- predictFunction(newData = my_df2)
+        my_lm2 <- lm(my_predictions2$predictions ~ my_df2[[col]])
+        my_slope2 <- my_lm2$coefficients[2]
+        my_intercept2 <- my_lm2$coefficients[1]
+        
       } else {
         singleVarDf <- data.frame(factor(info[[col]], levels = info[[col]]))
       }
@@ -221,8 +249,10 @@ plotVariableEffects = function(baseRow,
         }
       }
       
+      lineWidth <- ifelse(is.numeric(baseRow[[col]]), 2, 1)
+      
       plot(singleVarDf[[col]], labels$predictions, type = "l",
-           ylim = yAxisLimits, xlab = col, ylab = yAxisLabel)
+           ylim = yAxisLimits, xlab = col, ylab = yAxisLabel, lwd = lineWidth)
       
       abline(h = rowPred, lty = "dashed")
       points(baseRow[[col]], rowPred, pch = 16, cex = 1.5)
@@ -230,12 +260,34 @@ plotVariableEffects = function(baseRow,
       if (!is.null(modifiableDfRow)) {
         points(baseRow[[col]],modifiableDfRow$LMPrediction, 
                pch = 8, col = "red")
+               
         if (is.numeric(baseRow[[col]])) {
           numIndex <- which(modifiableDfRow == col) + 1
           slope <- as.numeric(modifiableDfRow[numIndex])/sd
-          xCoords <- baseRow[[col]] + 0.5*sd*spread*c(-1, 1)
+          xCoords <- baseRow[[col]] + 0.5*sd*c(-1, 1)
           yCoords <- slope*(xCoords - baseRow[[col]]) + LMrowPred
           lines(xCoords, yCoords, col = "red")
+          
+          # NEW (1)
+          points(baseRow[[col]], 
+                 my_slope*(baseRow[[col]]) + my_intercept, 
+                 pch = 8, col = "blue")
+          
+          # NEW (2)
+          xCoords2 <- my_interval
+          yCoords2 <- my_slope*(xCoords2) + my_intercept
+          lines(xCoords2, yCoords2, col = "blue")
+          
+          # NEW (1)
+          points(baseRow[[col]], 
+                 my_slope2*(baseRow[[col]]) + my_intercept2, 
+                 pch = 8, col =  rgb(0,0.4,0.25), lwd = 2)
+          
+          # NEW (2)
+          xCoords3 <- my_interval2
+          yCoords3 <- my_slope2*(xCoords3) + my_intercept2
+          lines(xCoords3, yCoords3, col =  rgb(0,0.4,0.25), lwd = 2)
+          
         } else {
           for (level in info[[col]]) {
             if (level != baseRow[[col]]) {
@@ -310,7 +362,7 @@ plotVariableEffects = function(baseRow,
 #' # If x is near one end of the distribution, a placeholder -1% or 101% 
 #' # "percentile" value is created
 #' percentileInterval(2, sample_percentiles, range = 10)
-percentileInterval = function(x, percentiles, range = 20) {
+percentileInterval = function(x, percentiles, range = 25) {
   # if x is very small, make fake -1% percentile
   if (x < percentiles[1 + range]) {
     lower <- 2*percentiles[1] - percentiles[2]
@@ -328,4 +380,57 @@ percentileInterval = function(x, percentiles, range = 20) {
     upper <- percentiles[index + range]
   }
   return(c(lower, upper))
+}
+
+
+
+
+
+
+
+singleNumericVariableDf = function(baseRow, 
+                                   variable,
+                                   interval,
+                                   size = 50,
+                                   center = NULL) {
+  # dummy column to set number of rows for dataframe
+  df <- data.frame(temp_column_to_drop = rep(0, times = size))
+  for (col in names(baseRow)) {
+    baseValue <- baseRow[[col]]
+    # if modifiable, fill with ...
+    if (col  == variable) {
+      if (is.null(center)) {
+        df[[col]] <- seq(interval[1], interval[2], length.out = size)
+      } else {
+        leftHalf <- seq(interval[1], center, length.out = size/2)
+        rightHalf <- seq(center, interval[2], length.out = size/2)
+        df[[col]] <- c(leftHalf, rightHalf)
+      }
+    } else {# not modifiable -> repeat baseValue throughout
+      df[[col]] <- rep(baseValue, times = size)
+    }
+  }
+  # drop temp column
+  df$temp_column_to_drop <- NULL
+  return(df)
+}
+
+singleFactorVariableDf = function(baseRow,
+                                  variable,
+                                  factorLevels) {
+  # dummy column to set number of rows for dataframe
+  size <- length(factorLevels)
+  df <- data.frame(temp_column_to_drop = rep(0, times = size))
+  for (col in names(baseRow)) {
+    baseValue <- baseRow[[col]]
+    # if modifiable, fill with ...
+    if (col  == variable) {
+      df[[col]] <- factor(factorLevels, levels = factorLevels)
+    } else {# not modifiable -> repeat baseValue throughout
+      df[[col]] <- rep(baseValue, times = size)
+    }
+  }
+  # drop temp column
+  df$temp_column_to_drop <- NULL
+  return(df)
 }

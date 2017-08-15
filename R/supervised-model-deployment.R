@@ -561,7 +561,8 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
                           info = self$modelInfo$featureDistributions,
                           predictFunction = self$newPredictions,
                           type = self$params$type,
-                          modifiableDfRow = modDfRow,
+                          modifiableDfRow = modDfRow, 
+                          info2 = self$modelInfo$featureDistributions2,
                           ...)
     },
     
