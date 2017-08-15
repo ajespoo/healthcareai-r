@@ -96,6 +96,8 @@ localLinearApproximation = function(baseRow,
 #' @description Extract an ordered list of coefficients from a linear model in 
 #' decreasing order (by value or by magnitude)
 #' @param linearModel The linear model whose coefficients you want to extract
+#' @param info a list indexed containing the standard deviations of all of the
+#' numeric variables
 #' @param orderByMagnitude A boolean, determining whether or not to order the 
 #' coefficients by magnitude rather than by value
 #' 
@@ -104,7 +106,9 @@ localLinearApproximation = function(baseRow,
 #' @export
 #' @references \url{http://healthcare.ai}
 #' @seealso \code{\link{healthcareai}}
-getLinearCoeffs = function(linearModel, orderByMagnitude = FALSE) {
+getScaledCoeffs = function(linearModel, 
+                           info, 
+                           orderByMagnitude = FALSE) {
   coefs <- linearModel$coefficients
   # peel off intercept
   intercept <- coefs[1]
@@ -112,6 +116,14 @@ getLinearCoeffs = function(linearModel, orderByMagnitude = FALSE) {
   
   # remove NAs
   coefs <- coefs[!is.na(coefs)]
+  
+  # Scale numeric variables by the standard deviation
+  for (variable in names(coefs)) {
+    sd <- info[[variable]]
+    if (!is.null(sd)) {
+      coefs[[variable]] <- coefs[[variable]]*sd
+    }
+  }
   
   # reorder by absolute value
   if (orderByMagnitude) {
@@ -220,7 +232,7 @@ plotVariableEffects = function(baseRow,
                pch = 8, col = "red")
         if (is.numeric(baseRow[[col]])) {
           numIndex <- which(modifiableDfRow == col) + 1
-          slope <- as.numeric(modifiableDfRow[numIndex])
+          slope <- as.numeric(modifiableDfRow[numIndex])/sd
           xCoords <- baseRow[[col]] + 0.5*sd*spread*c(-1, 1)
           yCoords <- slope*(xCoords - baseRow[[col]]) + LMrowPred
           lines(xCoords, yCoords, col = "red")

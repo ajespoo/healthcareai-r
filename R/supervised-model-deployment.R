@@ -365,8 +365,17 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
       linAPrediction <- predict(linA, newdata = thisRow)
       
       # Get the ordered linear model coefficients
-      coefs <- getLinearCoeffs(linearModel = linA, 
+      coefs <- getScaledCoeffs(linearModel = linA, 
+                               info = self$modelInfo$featureDistributions,
                                orderByMagnitude = T)
+      
+      # # Scale numeric variables by the standard deviation
+      # for (variable in names(coefs)) {
+      #   sd <- self$modelInfo$featureDistributions[[variable]]
+      #   if (!is.null(sd)) {
+      #     coefs[[variable]] <- coefs[[variable]]*sd
+      #   }
+      # }
       
       # Add factors and weights to dataframe
       tmp <- lapply(seq_along(coefs), function(i) 

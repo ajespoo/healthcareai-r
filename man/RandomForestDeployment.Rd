@@ -74,12 +74,25 @@ Returns the output dataframe. \cr
 \section{\code{$getModifiableFactorsDf()}}{
 
 Return the grain, all modifiable factors, and their weights. \cr
-\emph{Usage:} \code{$getTopFactors(rowNumbers = NULL, grainIDs = NULL)} \cr
+\emph{Usage:} \code{$getModifiableFactorsDf(rowNumbers = NULL, grainIDs = NULL)} \cr
 Params: \cr
   - \code{rowNumbers:} The row numbers of rows to display. \cr
   - \code{grainIDs:} The grain column ids of rows to display. \cr
   If neither \code{rowNumbers} nor \code{grainIDs} is specified, the entire 
   data frame will be used.
+}
+
+\section{\code{$plotSingleVariables()}}{
+
+Return the grain, all modifiable factors, and their weights. \cr
+\emph{Usage:} \code{$plotSingleVariables(rowNumber = NULL, grainID = NULL, 
+...)} \cr
+Params: \cr
+  - \code{rowNumber:} The row number of a row for which to plot the data. \cr
+  - \code{grainID:} The grain column id of a row for which to plot the data. 
+  \cr
+  - \code{...} Further parameters that can be passed to 
+  \code{plotVariableEffects}
 }
 
 \examples{

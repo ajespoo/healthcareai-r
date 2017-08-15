@@ -416,6 +416,20 @@ SupervisedModelDevelopment <- R6Class("SupervisedModelDevelopment",
           }
         }
       }
+      
+      # Save percentiles and factor level distributions
+      self$modelInfo$featureDistributions2 <- list()
+      for (col in names(self$params$df)) {
+        if (!col %in% c(self$params$predictedCol, self$params$grainCol)) {
+          if (is.numeric(self$params$df[[col]])) {
+            self$modelInfo$featureDistributions2[[col]] <-
+              quantile(self$params$df[[col]], seq(0, 1, 0.01))
+          } else {
+            self$modelInfo$featureDistributions2[[col]] <-
+              table(self$params$df[[col]])/length(self$params$df[[col]])
+          }
+        }
+      }
     }, 
     
     # This function must be in here for the row-wise predictions and
