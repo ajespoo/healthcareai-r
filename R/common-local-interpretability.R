@@ -362,7 +362,7 @@ plotVariableEffects = function(baseRow,
 #' # If x is near one end of the distribution, a placeholder -1% or 101% 
 #' # "percentile" value is created
 #' percentileInterval(2, sample_percentiles, range = 10)
-percentileInterval = function(x, percentiles, range = 25) {
+percentileInterval = function(x, percentiles, range = 20) {
   # if x is very small, make fake -1% percentile
   if (x < percentiles[1 + range]) {
     lower <- 2*percentiles[1] - percentiles[2]
@@ -433,4 +433,99 @@ singleFactorVariableDf = function(baseRow,
   # drop temp column
   df$temp_column_to_drop <- NULL
   return(df)
+}
+
+modifiableFactors1Row = function(baseRow,
+                                 modifiableCols,
+                                 info2,
+                                 predictFunction,
+                                 lowerProbGoal = TRUE, 
+                                 numberOfPercentiles = 15) {
+  currentProb <- predictFunction(baseRow)$predictions
+  
+  featureList <- list()
+  for (col in modifiableCols) {
+    # Save current value of the variable
+    currentValue <- baseRow[[col]]
+    
+    # Compute alternate values and probabilities for numeric variables
+    if (is.numeric(baseRow[[col]])) {
+      
+      # Build first linear model
+      # Build dataframe with variable ranging within quantile range
+      variableRange <- percentileInterval(x = baseRow[[col]], 
+                                          percentiles = info2[[col]], 
+                                          range = numberOfPercentiles)
+      balancedDf <- singleNumericVariableDf(baseRow = baseRow, 
+                                            variable = col, 
+                                            interval = variableRange, 
+                                            center = baseRow[[col]],
+                                            size = 50)
+      # Make predictions and train a linear model on these
+      balancedPredictions <- predictFunction(newData = balancedDf)
+      balancedLM <- lm(balancedPredictions$predictions ~ balancedDf[[col]])
+      # Extract linear model coefficients
+      balancedSlope <- balancedLM$coefficients[2]
+      balancedIntercept <- balancedLM$coefficients[1]
+      
+      # Build second linear model
+      # Case 1: want to shift to the right
+      if ((balancedSlope < 0 & lowerProbGoal) 
+          || (balancedSlope > 0 & !lowerProbGoal)) {
+        # skew interval to the right
+        newLow <- baseRow[[col]] - 0.25*(variableRange[2] - baseRow[[col]])
+        altValue <- variableRange[2]
+        skewedInterval <- c(newLow, altValue)
+        # Case 2: want to shift to the left
+      } else {
+        # skew interval to the left
+        newHigh <- baseRow[[col]] + 0.25*(baseRow[[col]] - variableRange[1])
+        altValue <- variableRange[1]
+        skewedInterval <- c(altValue, newHigh)
+      }
+      skewedDf <- singleNumericVariableDf(baseRow = baseRow, 
+                                          variable = col, 
+                                          interval = skewedInterval, 
+                                          size = 50)
+      
+      skewedPredictions <- predictFunction(newData = skewedDf)
+      skewedLM <- lm(skewedPredictions$predictions ~ skewedDf[[col]])
+      # Extract model coefficients
+      skewedSlope <- skewedLM$coefficients[2]
+      skewedIntercept <- skewedLM$coefficients[1]
+      
+      altProb <- round(skewedSlope*altValue + skewedIntercept, 4)
+      
+      summaryDf <- data.frame(variable = col, 
+                              currentValue = signif(currentValue, 4),
+                              altValue = signif(altValue, 4),
+                              altProb = altProb,
+                              delta = round(altProb - currentProb, 4), 
+                              intercept = skewedIntercept,
+                              slope = skewedSlope)
+      featureList[[col]] <- summaryDf
+      
+      # Compute alternate values and probabilities for categorical variables
+    } else {
+      levels <- names(info2[[col]])
+      for (level in levels) {
+        altRow <- baseRow
+        altRow[[col]] <- factor(level, levels = levels)
+        altProb <- predictFunction(altRow)$predictions
+        summaryDf <- data.frame(variable = col, 
+                                currentValue = currentValue,
+                                altValue = level,
+                                altProb = round(altProb, 4),
+                                delta = round(altProb - currentProb, 4), 
+                                intercept = NA,
+                                slope = NA)
+        featureList[[paste0(col, '.', level)]] <- summaryDf
+      }
+    }
+  }
+  
+  # Arrange the featureList into a dataframe
+  tempDf <- do.call(rbind, featureList)
+  # Order by delta
+  return(tempDf[order(tempDf$delta, decreasing = !lowerProbGoal), ])
 }
