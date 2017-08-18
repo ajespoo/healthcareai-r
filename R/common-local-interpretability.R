@@ -466,7 +466,6 @@ modifiableFactors1Row = function(baseRow,
       balancedLM <- lm(balancedPredictions$predictions ~ balancedDf[[col]])
       # Extract linear model coefficients
       balancedSlope <- balancedLM$coefficients[2]
-      balancedIntercept <- balancedLM$coefficients[1]
       
       # Build second linear model
       # Case 1: want to shift to the right
@@ -528,4 +527,51 @@ modifiableFactors1Row = function(baseRow,
   tempDf <- do.call(rbind, featureList)
   # Order by delta
   return(tempDf[order(tempDf$delta, decreasing = !lowerProbGoal), ])
+}
+
+buildTopModifiableFactorsDf = function(df,
+                                       modifiableCols,
+                                       info2,
+                                       predictFunction,
+                                       numTopFactors = 3,
+                                       lowerProbGoal = TRUE,
+                                       repeatedFactors = FALSE) {
+  # Build the full list
+  modFactorsList <- lapply(1:nrow(df), function(i) {
+    modifiableFactors1Row(baseRow = df[i, ], 
+                          modifiableCols = modifiableCols,
+                          info2 = info2, 
+                          predictFunction = predictFunction,
+                          lowerProbGoal = lowerProbGoal)})
+  
+  # Drop slope and intercept columns and drop repeated top variables if 
+  # appropriate
+  if (!repeatedFactors) {
+    modFactorList <- lapply(modFactorsList, function(rowDf) {
+      rowDf <- rowDf[!duplicated(rowDf[, 1]), ]
+      return(rowDf[, 1:5])
+    })
+  } else {
+    modFactorList <- lapply(modFactorsList, function(rowDf) {
+      return(rowDf[, 1:5])
+    })
+  }
+  
+  # Aetermine the maximum number of modifiable factors
+  numTopFactors <- min(numTopFactors, nrow(modFactorsList[1]))
+  # Combine into dataframe
+  modFactorsDf <- do.call(rbind, lapply(modFactorList, function(rowDf){
+    do.call(cbind, lapply(1:numTopFactors, function(i) {
+      row <- rowDf[i, ]
+      names(row) <- c(paste0("Modify", i, "TXT"),
+                      paste0("Modify", i, "Current"), 
+                      paste0("Modify", i, "AltValue"),
+                      paste0("Modify", i, "AltProb"),
+                      paste0("Modify", i, "Delta"))
+      return(row)
+    }))
+  }))
+  row.names(modFactorsDf) <- NULL
+  
+  return(modFactorsDf)
 }
