@@ -37,6 +37,7 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
   clustersOnCores = NA,
   
   modifiableFactorsDf = NA,
+  modifiableFactorsDf2 = NA,
 
   ###########
   # Functions
@@ -369,14 +370,6 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
                                info = self$modelInfo$featureDistributions,
                                orderByMagnitude = T)
       
-      # # Scale numeric variables by the standard deviation
-      # for (variable in names(coefs)) {
-      #   sd <- self$modelInfo$featureDistributions[[variable]]
-      #   if (!is.null(sd)) {
-      #     coefs[[variable]] <- coefs[[variable]]*sd
-      #   }
-      # }
-      
       # Add factors and weights to dataframe
       tmp <- lapply(seq_along(coefs), function(i) 
         structure(data.frame(names(coefs)[i], signif(coefs[i], 4), 
@@ -393,7 +386,6 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
   },
   
   # Create the dataframe of modifiable factors
-  # TODO: make it possible to do this a few rows at a time
   createModifiableFactorsDf = function(rowNumbers) {
     
     if (!is.null(self$params$modifiableVariables)) {
@@ -534,6 +526,18 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
       # Return dataframe of modifiable factors and their weights
       return(private$modifiableFactorsDf[private$modifiableFactorsDf$GrainID 
                                          %in% private$grainTest[rowNumbers], ])
+    },
+    
+    getModifiableFactorsDf2 = function(numberOfPercentiles = 12) {
+      modFactDf2 <- buildTopModifiableFactorsDf(
+        df = self$params$df,
+        modifiableCols = self$params$modifiableVariables,
+        info2 = self$modelInfo$featureDistributions2,
+        predictFunction = self$newPredictions, 
+        numberOfPercentiles = numberOfPercentiles)
+      # Add grain id
+      modFactDf2 <- cbind(data.frame(GrainID = private$grainTest), modFactDf2)
+      return(modFactDf2)
     },
     
     plotSingleVariables = function(rowNumber = NULL, 
