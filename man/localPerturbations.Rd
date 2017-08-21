@@ -4,8 +4,13 @@
 \alias{localPerturbations}
 \title{Get a dataframe consisting of rows "near" a given row}
 \usage{
-localPerturbations(baseRow, modifiableCols, info, size = 1000, spread = 1/4,
-  grainCol = NA, predictedCol = NA)
+localPerturbations(baseRow,
+                   modifiableCols,
+                   info,
+                   size = 1000,
+                   spread = 1/4,
+                   grainCol = NA,
+                   predictedCol = NA)
 }
 \arguments{
 \item{baseRow}{a row of data (in a dataframe) to perturb}
@@ -33,7 +38,7 @@ Build a dataframe consisting of rows which are perturbations
 of a given row.
 }
 \references{
-\url{http://healthcare.ai}
+\url{http://healthcareai-r.readthedocs.io}
 }
 \seealso{
 \code{\link{healthcareai}}

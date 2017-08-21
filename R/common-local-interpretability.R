@@ -5,6 +5,13 @@
 #' 
 #' @description Build a dataframe consisting of rows which are perturbations 
 #' of a given row.
+#' @usage localPerturbations(baseRow,
+#'                    modifiableCols,
+#'                    info,
+#'                    size = 1000,
+#'                    spread = 1/4,
+#'                    grainCol = NA,
+#'                    predictedCol = NA)
 #' @param baseRow a row of data (in a dataframe) to perturb
 #' @param modifiableCols a vector of column names corresponding to the columns
 #' which should be perturbed
@@ -20,7 +27,7 @@
 #' 
 #'
 #' @export
-#' @references \url{http://healthcare.ai}
+#' @references \url{http://healthcareai-r.readthedocs.io}
 #' @seealso \code{\link{healthcareai}}
 localPerturbations = function(baseRow, 
                               modifiableCols,
@@ -61,6 +68,7 @@ localPerturbations = function(baseRow,
 #' @importFrom stats lm
 #' 
 #' @description Build a linear model approximating another model at a point
+#' @usage localLinearApproximation(baseRow, predictFunction, localDf)
 #' @param baseRow A row in a dataframe containing a data point at which to make 
 #' the linear approximation.
 #' @param predictFunction A function with which to make predictions for the
@@ -71,7 +79,7 @@ localPerturbations = function(baseRow,
 #' @return The linear model approximating the original model
 #'
 #' @export
-#' @references \url{http://healthcare.ai}
+#' @references \url{http://healthcareai-r.readthedocs.io}
 #' @seealso \code{\link{healthcareai}}
 localLinearApproximation = function(baseRow, 
                                     predictFunction, 
@@ -97,10 +105,12 @@ localLinearApproximation = function(baseRow,
 }
 
 #' @title
-#' Extract an ordered list of coefficients from a linear model
+#' Extract an ordered list of scaled coefficients from a linear model
 #'
 #' @description Extract an ordered list of coefficients from a linear model in 
-#' decreasing order (by value or by magnitude)
+#' decreasing order (by value or by magnitude). These coefficients are scaled
+#' by the standard deviation of the variable.
+#' @usage getScaledCoeffs(linearModel, info, orderByMagnitude = FALSE)
 #' @param linearModel The linear model whose coefficients you want to extract
 #' @param info a list indexed containing the standard deviations of all of the
 #' numeric variables
@@ -110,7 +120,7 @@ localLinearApproximation = function(baseRow,
 #' @return A vector containing the ordered coefficients of the linear model 
 #'
 #' @export
-#' @references \url{http://healthcare.ai}
+#' @references \url{http://healthcareai-r.readthedocs.io}
 #' @seealso \code{\link{healthcareai}}
 getScaledCoeffs = function(linearModel, 
                            info, 
@@ -152,6 +162,16 @@ getScaledCoeffs = function(linearModel,
 #' 
 #' @description Plot the output of a model as each coefficient changes 
 #' individually
+#' @usage plotVariableEffects(baseRow, 
+#'                     modifiableCols, 
+#'                     info,
+#'                     info2,
+#'                     predictFunction,
+#'                     type,
+#'                     spread = 2,
+#'                     numberOfPercentiles = 12,
+#'                     modifiableDfRow = NULL,
+#'                     grid = NULL)
 #' @param baseRow a row in a data frame, used as the reference from which to 
 #' vary the variables
 #' @param modifiableCols a vector of column names corresponding to the columns
@@ -172,7 +192,7 @@ getScaledCoeffs = function(linearModel,
 #' rows and the second determines the number of columns.
 #'
 #' @export
-#' @references \url{http://healthcare.ai}
+#' @references \url{http://healthcareai-r.readthedocs.io}
 #' @seealso \code{\link{healthcareai}}
 plotVariableEffects = function(baseRow, 
                                modifiableCols,
@@ -314,7 +334,7 @@ plotVariableEffects = function(baseRow,
 #' computed from 0\% - (1\% - 0\%) and the range (-1\%, (2*\code{range} - 1)\%) 
 #' is returned. Similarly, if k + \code{range} > 100, then a 101\% "percentile" 
 #' is computed.
-#' 
+#' @usage percentileInterval(x, percentiles, range = 20)
 #' @param x the value (of a continuous variable) around which to build the 
 #' interval
 #' @param percentiles a vector of percentiles of length 101, with one entry 
@@ -328,7 +348,7 @@ plotVariableEffects = function(baseRow,
 #' of the interval
 #'
 #' @export
-#' @references \url{http://healthcare.ai}
+#' @references \url{http://healthcareai-r.readthedocs.io}
 #' @seealso \code{\link{healthcareai}}
 #' @examples 
 #' # A sample from a normal distribution
@@ -371,12 +391,28 @@ percentileInterval = function(x, percentiles, range = 20) {
   return(c(lower, upper))
 }
 
-
-
-
-
-
-
+#' @title
+#' Build a dataframe whose rows all agree except in one numeric column.
+#' 
+#' @description Build a dataframe whose rows all agree except in one numeric 
+#' column whose values are evenly spread out along a range of values.
+#' 
+#' @param baseRow a row of data (in a dataframe) to perturb
+#' @param variable the name of the numeric column which will take on multiple
+#' values
+#' @param interval a 2-dimensional vector consisting of the endpoints of an 
+#' interval along which to vary the value of \code{variable}
+#' @param size the number of rows the dataframe should have
+#' @param center a optional value to use as the center of the interval; if a 
+#' value is specified, half of the values of the \code{variable} column will be 
+#' less than \code{center} and the other half will be greater than \code{center}
+#' 
+#' @return a dataframe dataframe whose rows all agree except in the
+#' \code{variable}column whose values are evenly spread out along a range of values
+#'
+#' @export
+#' @references \url{http://healthcareai-r.readthedocs.io}
+#' @seealso \code{\link{healthcareai}}
 singleNumericVariableDf = function(baseRow, 
                                    variable,
                                    interval,
@@ -404,6 +440,24 @@ singleNumericVariableDf = function(baseRow,
   return(df)
 }
 
+#' @title
+#' Build a dataframe whose rows all agree except in one categorical column.
+#' 
+#' @description Build a dataframe whose rows all agree except in one categorical 
+#' column which has a unique category in each row.
+#' 
+#' @param baseRow a row of data (in a dataframe) to perturb
+#' @param variable the name of the categorical column which will take on
+#' multiple values
+#' @param factorLevels a list of factor levels or categories which the
+#' categorical column can take
+#' 
+#' @return a dataframe whose rows all agree except in the \code{variable}
+#' column which takes each level in \code{factorLevels} exactly once.
+#'
+#' @export
+#' @references \url{http://healthcareai-r.readthedocs.io}
+#' @seealso \code{\link{healthcareai}}
 singleFactorVariableDf = function(baseRow,
                                   variable,
                                   factorLevels) {
@@ -424,8 +478,30 @@ singleFactorVariableDf = function(baseRow,
   return(df)
 }
 
-
-# TODO: import @importFrom stats lm
+#' @title
+#' Build a dataframe with the modifiable factors information for 1 row
+#' 
+#' @importFrom stats lm
+#' 
+#' @description Build a dataframe with the modifiable factors information for 1 
+#' row. This dataframe contains the 
+#' 
+#' @param baseRow the row of data for which to determine the modifiable factors
+#' @param modifiableCols a list of names of the modifiable columns
+#' @param info2 percentiles and frequencies TODO: expand
+#' @param predictFunction a function used to make new predictions using the 
+#' model we wish to study
+#' @param lowerProbGoal a boolean specifying whether the goal is to reduce the
+#' predicted probability (i.e., Y corresponds to negative outcome)
+#' @param numberOfPercentiles the number of percentiles to use when
+#' approximating the model
+#' 
+#' @return a dataframe whose rows all agree except in the \code{variable}
+#' column which takes each level in \code{factorLevels} exactly once.
+#'
+#' @export
+#' @references \url{http://healthcareai-r.readthedocs.io}
+#' @seealso \code{\link{healthcareai}}
 modifiableFactors1Row = function(baseRow,
                                  modifiableCols,
                                  info2,

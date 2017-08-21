@@ -4,9 +4,16 @@
 \alias{plotVariableEffects}
 \title{Plot the output of a model as each coefficient changes individually}
 \usage{
-plotVariableEffects(baseRow, modifiableCols, info, info2, predictFunction, type,
-  spread = 2, numberOfPercentiles = 12, modifiableDfRow = NULL,
-  grid = NULL)
+plotVariableEffects(baseRow, 
+                    modifiableCols, 
+                    info,
+                    info2,
+                    predictFunction,
+                    type,
+                    spread = 2,
+                    numberOfPercentiles = 12,
+                    modifiableDfRow = NULL,
+                    grid = NULL)
 }
 \arguments{
 \item{baseRow}{a row in a data frame, used as the reference from which to 
@@ -42,7 +49,7 @@ Plot the output of a model as each coefficient changes
 individually
 }
 \references{
-\url{http://healthcare.ai}
+\url{http://healthcareai-r.readthedocs.io}
 }
 \seealso{
 \code{\link{healthcareai}}

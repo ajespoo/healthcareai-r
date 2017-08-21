@@ -57,7 +57,7 @@ percentileInterval(1, sample_percentiles, range = 10)
 percentileInterval(2, sample_percentiles, range = 10)
 }
 \references{
-\url{http://healthcare.ai}
+\url{http://healthcareai-r.readthedocs.io}
 }
 \seealso{
 \code{\link{healthcareai}}

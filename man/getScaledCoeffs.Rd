@@ -2,7 +2,7 @@
 % Please edit documentation in R/common-local-interpretability.R
 \name{getScaledCoeffs}
 \alias{getScaledCoeffs}
-\title{Extract an ordered list of coefficients from a linear model}
+\title{Extract an ordered list of scaled coefficients from a linear model}
 \usage{
 getScaledCoeffs(linearModel, info, orderByMagnitude = FALSE)
 }
@@ -20,10 +20,11 @@ A vector containing the ordered coefficients of the linear model
 }
 \description{
 Extract an ordered list of coefficients from a linear model in 
-decreasing order (by value or by magnitude)
+decreasing order (by value or by magnitude). These coefficients are scaled
+by the standard deviation of the variable.
 }
 \references{
-\url{http://healthcare.ai}
+\url{http://healthcareai-r.readthedocs.io}
 }
 \seealso{
 \code{\link{healthcareai}}
