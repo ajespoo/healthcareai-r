@@ -166,7 +166,8 @@ plotVariableEffects = function(baseRow,
                                info2,
                                predictFunction,
                                type,
-                               spread = 2,
+                               spread = 2, 
+                               numberOfPercentiles = 12,
                                modifiableDfRow = NULL,
                                grid = NULL) {
   # By default, display at most 8 graphs
@@ -182,7 +183,8 @@ plotVariableEffects = function(baseRow,
                                       modifiableCols = modifiableCols,
                                       info2 = info2, 
                                       predictFunction = predictFunction,
-                                      lowerProbGoal = TRUE)
+                                      lowerProbGoal = TRUE, 
+                                      numberOfPercentiles = numberOfPercentiles)
   
   oldGraphicalParams1 <- par()$mfrow
   oldGraphicalParams2 <- par()$oma
@@ -509,14 +511,16 @@ buildTopModifiableFactorsDf = function(df,
                                        predictFunction,
                                        numTopFactors = 3,
                                        lowerProbGoal = TRUE,
-                                       repeatedFactors = FALSE) {
+                                       repeatedFactors = FALSE, 
+                                       numberOfPercentiles = 12) {
   # Build the full list
   modFactorsList <- lapply(1:nrow(df), function(i) {
     modifiableFactors1Row(baseRow = df[i, ], 
                           modifiableCols = modifiableCols,
                           info2 = info2, 
                           predictFunction = predictFunction,
-                          lowerProbGoal = lowerProbGoal)})
+                          lowerProbGoal = lowerProbGoal, 
+                          numberOfPercentiles = numberOfPercentiles)})
   
   # Drop slope and intercept columns and drop repeated top variables if 
   # appropriate
