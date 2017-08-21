@@ -58,7 +58,8 @@ localPerturbations = function(baseRow,
 #' @description Build a linear model approximating another model at a point
 #' @param baseRow A row in a dataframe containing a data point at which to make 
 #' the linear approximation.
-#' @param fitObj The model to approximate
+#' @param predictFunction A function with which to make predictions for the
+#' model to approximate
 #' @param localDf A dataframe of data near baseRow on which to approximate the 
 #' model
 #' 
@@ -148,7 +149,9 @@ getScaledCoeffs = function(linearModel,
 #' @param info a list which indexed by the column names in modifiableCols 
 #' containing the standard deviation (for numeric columns) or the factor levels
 #' (for factor columns)
-#' @param fitObj the model for which we are plotting changes in variables
+#' @param info2 list of percentiles TODO: expand
+#' @param predictFunction a function with which to make new predictions for 
+#' the model
 #' @param type the type of fitObj: "classification" or "regression"
 #' @param spread a number representing how widely to vary the variables
 #' @param modifiableDfRow the row in ModifiableFactorsDf corresponding to 
