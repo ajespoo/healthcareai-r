@@ -417,6 +417,15 @@ SupervisedModelDevelopment <- R6Class("SupervisedModelDevelopment",
         }
       }
       
+      # Save covariance matrix
+      numericColumns <- self$params$df[sapply(self$params$df, is.numeric)]
+      for (col in skipCols) {
+        numericColumns[[col]] <- NULL
+      }
+      if (ncol(numericColumns) > 0) {
+        self$modelInfo$covarianceMatrix <- cov(numericColumns)
+      }
+      
       # Save percentiles and factor level distributions
       self$modelInfo$featureDistributions2 <- list()
       for (col in names(self$params$df)) {
