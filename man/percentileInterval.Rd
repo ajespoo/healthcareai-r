@@ -11,7 +11,7 @@ percentileInterval(x, percentiles, range = 20)
 interval}
 
 \item{percentiles}{a vector of percentiles of length 101, with one entry 
-for each percentile 0%, 1%, 2%, ..., 99%, 100%}
+for each percentile 0\%, 1\%, 2\%, ..., 99\%, 100\%}
 
 \item{range}{an integer represententing how many percentiles to include in
 each direction, so if \code{x} lies in the k-th percentile, then the
@@ -23,16 +23,16 @@ a 2-dimensional vector consisting of the lower and upper endpoints
 of the interval
 }
 \description{
-Returns the lower and upper ends of an interval roughly \code{range} 
-percentiles above and below \code{x}.
+Returns the lower and upper ends of an interval roughly 
+\code{range} percentiles above and below \code{x}.
 
 We assume that the vector of percentiles was computed using sample data so
 that the minimum and maximum values may not truly represent the minimum and
 maximum values of the underlying distribution. If \code{x} lies in the k-th 
-percentile and k - \code{range} < 0 then a -1% "percentile" value is 
-computed from 0% - (1% - 0%) and the range (-1%, (2*\code{range} - 1)%) is 
-returned. Similarly, if k + \code{range} > 100, then a 101% "percentile" is 
-computed.
+percentile and k - \code{range} < 0 then a -1\% "percentile" value is 
+computed from 0\% - (1\% - 0\%) and the range (-1\%, (2*\code{range} - 1)\%) 
+is returned. Similarly, if k + \code{range} > 100, then a 101\% "percentile" 
+is computed.
 }
 \examples{
 # A sample from a normal distribution

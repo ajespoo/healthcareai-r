@@ -10,10 +10,11 @@ localLinearApproximation(baseRow, predictFunction, localDf)
 \item{baseRow}{A row in a dataframe containing a data point at which to make 
 the linear approximation.}
 
+\item{predictFunction}{A function with which to make predictions for the
+model to approximate}
+
 \item{localDf}{A dataframe of data near baseRow on which to approximate the 
 model}
-
-\item{fitObj}{The model to approximate}
 }
 \value{
 The linear model approximating the original model

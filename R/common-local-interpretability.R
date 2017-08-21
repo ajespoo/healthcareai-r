@@ -1,6 +1,8 @@
 #' @title
 #' Get a dataframe consisting of rows "near" a given row
-#'
+#' 
+#' @importFrom stats rnorm
+#' 
 #' @description Build a dataframe consisting of rows which are perturbations 
 #' of a given row.
 #' @param baseRow a row of data (in a dataframe) to perturb
@@ -54,7 +56,10 @@ localPerturbations = function(baseRow,
 
 #' @title
 #' Build a linear model approximating another model
-#'
+#' 
+#' @importFrom stats relevel
+#' @importFrom stats lm
+#' 
 #' @description Build a linear model approximating another model at a point
 #' @param baseRow A row in a dataframe containing a data point at which to make 
 #' the linear approximation.
@@ -140,6 +145,11 @@ getScaledCoeffs = function(linearModel,
 #' @title
 #' Plot the output of a model as each coefficient changes individually
 #'
+#' @importFrom graphics abline
+#' @importFrom graphics lines
+#' @importFrom graphics mtext
+#' @importFrom graphics points
+#' 
 #' @description Plot the output of a model as each coefficient changes 
 #' individually
 #' @param baseRow a row in a data frame, used as the reference from which to 
@@ -154,6 +164,7 @@ getScaledCoeffs = function(linearModel,
 #' the model
 #' @param type the type of fitObj: "classification" or "regression"
 #' @param spread a number representing how widely to vary the variables
+#' @param numberOfPercentiles the number of percentiles to use TODO:expand
 #' @param modifiableDfRow the row in ModifiableFactorsDf corresponding to 
 #' baseRow
 #' @param grid An ordered pair of integers (rows, columns) which determines the 
@@ -293,22 +304,21 @@ plotVariableEffects = function(baseRow,
 #' @title
 #' Get a percentile interval.
 #'
-#' @description 
-#' Returns the lower and upper ends of an interval roughly \code{range} 
-#' percentiles above and below \code{x}.
+#' @description Returns the lower and upper ends of an interval roughly 
+#' \code{range} percentiles above and below \code{x}.
 #' 
 #' We assume that the vector of percentiles was computed using sample data so
 #' that the minimum and maximum values may not truly represent the minimum and
 #' maximum values of the underlying distribution. If \code{x} lies in the k-th 
-#' percentile and k - \code{range} < 0 then a -1% "percentile" value is 
-#' computed from 0% - (1% - 0%) and the range (-1%, (2*\code{range} - 1)%) is 
-#' returned. Similarly, if k + \code{range} > 100, then a 101% "percentile" is 
-#' computed.
+#' percentile and k - \code{range} < 0 then a -1\% "percentile" value is 
+#' computed from 0\% - (1\% - 0\%) and the range (-1\%, (2*\code{range} - 1)\%) 
+#' is returned. Similarly, if k + \code{range} > 100, then a 101\% "percentile" 
+#' is computed.
 #' 
 #' @param x the value (of a continuous variable) around which to build the 
 #' interval
 #' @param percentiles a vector of percentiles of length 101, with one entry 
-#' for each percentile 0%, 1%, 2%, ..., 99%, 100%
+#' for each percentile 0\%, 1\%, 2\%, ..., 99\%, 100\%
 #' @param range an integer represententing how many percentiles to include in
 #' each direction, so if \code{x} lies in the k-th percentile, then the
 #' interval will range from the (k - \code{range})-th percentile to the (k + 
@@ -414,6 +424,8 @@ singleFactorVariableDf = function(baseRow,
   return(df)
 }
 
+
+# TODO: import @importFrom stats lm
 modifiableFactors1Row = function(baseRow,
                                  modifiableCols,
                                  info2,
