@@ -176,13 +176,18 @@ plotVariableEffects = function(baseRow,
     displayCols <- min(4, numberOfPlots)
     grid <- c(displayRows, displayCols)
   }
+  
+  # Compute modifiable factors using univariate method
+  univariate <- modifiableFactors1Row(baseRow = baseRow, 
+                                      modifiableCols = modifiableCols,
+                                      info2 = info2, 
+                                      predictFunction = predictFunction,
+                                      lowerProbGoal = TRUE)
+  
   oldGraphicalParams1 <- par()$mfrow
   oldGraphicalParams2 <- par()$oma
   tryCatch({
     par(mfrow = grid, oma = c(2,2,2,2))
-    
-    # NEW (1)
-    base_prediction <- predictFunction(baseRow)$predictions
     
     for (col in modifiableCols) {
       # Build dataframe with variation in a single column
@@ -191,31 +196,7 @@ plotVariableEffects = function(baseRow,
         sd <- info[[col]]
         singleVarDf <- data.frame(seq(from = info2[[col]][1],
                                       to = info2[[col]][101],
-                                      length.out = 100))
-        
-        # NEW (5)
-        my_interval <- percentileInterval(baseRow[[col]], info2[[col]])
-        my_df <- singleNumericVariableDf(baseRow, col, my_interval, 
-                                         center = baseRow[[col]])
-        my_predictions <- predictFunction(newData = my_df)
-        my_lm <- lm(my_predictions$predictions ~ my_df[[col]])
-        my_slope <- my_lm$coefficients[2]
-        my_intercept <- my_lm$coefficients[1]
-        
-        # NEW (lots)
-        if (my_slope < 0) {
-          new_low <- baseRow[[col]] - 0.25*(my_interval[2] - baseRow[[col]])
-          my_interval2 <- c(new_low, my_interval[2])
-        } else {
-          new_high <- baseRow[[col]] + 0.25*(baseRow[[col]] - my_interval[1])
-          my_interval2 <- c(my_interval[1], new_high)
-        }
-        my_df2 <- singleNumericVariableDf(baseRow, col, my_interval2)
-        my_predictions2 <- predictFunction(newData = my_df2)
-        my_lm2 <- lm(my_predictions2$predictions ~ my_df2[[col]])
-        my_slope2 <- my_lm2$coefficients[2]
-        my_intercept2 <- my_lm2$coefficients[1]
-        
+                                      length.out = 100))  
       } else {
         singleVarDf <- data.frame(factor(info[[col]], levels = info[[col]]))
       }
@@ -232,7 +213,7 @@ plotVariableEffects = function(baseRow,
         LMrowPred <- modifiableDfRow$LMPrediction
       }
       
-      # plot the effect of changing the variable
+      # Set axes labels, limits
       if (type == "classification") {
         yAxisLabel <- "Probability"
         yAxisLimits <- c(0,1)
@@ -249,6 +230,7 @@ plotVariableEffects = function(baseRow,
         }
       }
       
+      # Plot model values
       lineWidth <- ifelse(is.numeric(baseRow[[col]]), 2, 1)
       
       plot(singleVarDf[[col]], labels$predictions, type = "l",
@@ -256,6 +238,19 @@ plotVariableEffects = function(baseRow,
       
       abline(h = rowPred, lty = "dashed")
       points(baseRow[[col]], rowPred, pch = 16, cex = 1.5)
+      
+      # Plot univariate approximation
+      if (is.numeric(baseRow[[col]])) {
+        uniRow <- univariate[univariate$variable == col, ]
+        currentValue <- as.numeric(uniRow$currentValue)
+        altValue <- as.numeric(uniRow$altValue)
+        xCoords <- c(1.25*currentValue - 0.25*altValue, altValue)
+        yCoords <- uniRow$slope*xCoords + uniRow$intercept
+        lines(xCoords, yCoords, col = "blue", lwd = lineWidth)
+        
+        points(currentValue, uniRow$slope*currentValue + uniRow$intercept, 
+               pch = 8, col = "blue")
+      }
       
       if (!is.null(modifiableDfRow)) {
         points(baseRow[[col]],modifiableDfRow$LMPrediction, 
@@ -266,28 +261,7 @@ plotVariableEffects = function(baseRow,
           slope <- as.numeric(modifiableDfRow[numIndex])/sd
           xCoords <- baseRow[[col]] + 0.5*sd*c(-1, 1)
           yCoords <- slope*(xCoords - baseRow[[col]]) + LMrowPred
-          lines(xCoords, yCoords, col = "red")
-          
-          # NEW (1)
-          points(baseRow[[col]], 
-                 my_slope*(baseRow[[col]]) + my_intercept, 
-                 pch = 8, col = "blue")
-          
-          # NEW (2)
-          xCoords2 <- my_interval
-          yCoords2 <- my_slope*(xCoords2) + my_intercept
-          lines(xCoords2, yCoords2, col = "blue")
-          
-          # NEW (1)
-          points(baseRow[[col]], 
-                 my_slope2*(baseRow[[col]]) + my_intercept2, 
-                 pch = 8, col =  rgb(0,0.4,0.25), lwd = 2)
-          
-          # NEW (2)
-          xCoords3 <- my_interval2
-          yCoords3 <- my_slope2*(xCoords3) + my_intercept2
-          lines(xCoords3, yCoords3, col =  rgb(0,0.4,0.25), lwd = 2)
-          
+          lines(xCoords, yCoords, col = "red", lwd = lineWidth)
         } else {
           for (level in info[[col]]) {
             if (level != baseRow[[col]]) {
@@ -365,13 +339,13 @@ plotVariableEffects = function(baseRow,
 percentileInterval = function(x, percentiles, range = 20) {
   # if x is very small, make fake -1% percentile
   if (x < percentiles[1 + range]) {
-    lower <- 2*percentiles[1] - percentiles[2]
+    lower <- percentiles[1] - 1.0*(percentiles[2] - percentiles[1])
     upper <- percentiles[2*range]
     names(lower) <- "-1%"
   # if x is very large, make fake 101% percentile
   } else if (x > percentiles[101 - range]) {
     lower <- percentiles[101 - 2*range]
-    upper <- 2*percentiles[101] - percentiles[100]
+    upper <- percentiles[101] + 1.0*(percentiles[101] - percentiles[100])
     names(upper) <- "101%"
   # otherwise, use the expected percentiles
   } else {
@@ -440,7 +414,7 @@ modifiableFactors1Row = function(baseRow,
                                  info2,
                                  predictFunction,
                                  lowerProbGoal = TRUE, 
-                                 numberOfPercentiles = 15) {
+                                 numberOfPercentiles = 12) {
   currentProb <- predictFunction(baseRow)$predictions
   
   featureList <- list()
