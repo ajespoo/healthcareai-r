@@ -232,7 +232,7 @@ plotVariableEffects = function(baseRow,
         sd <- info[[col]]
         singleVarDf <- data.frame(seq(from = info2[[col]][1],
                                       to = info2[[col]][101],
-                                      length.out = 100))  
+                                      length.out = 1000))  
       } else {
         singleVarDf <- data.frame(factor(info[[col]], levels = info[[col]]))
       }
@@ -579,12 +579,13 @@ modifiableFactors1Row = function(baseRow,
         altRow[[col]] <- factor(level, levels = levels)
         altProb <- predictFunction(altRow)$predictions
         summaryDf <- data.frame(variable = col, 
-                                currentValue = currentValue,
-                                altValue = level,
+                                currentValue = as.character(currentValue),
+                                altValue = as.character(level),
                                 altProb = round(altProb, 4),
                                 delta = round(altProb - currentProb, 4), 
                                 intercept = NA,
-                                slope = NA)
+                                slope = NA,
+                                stringsAsFactors = FALSE)
         featureList[[paste0(col, '.', level)]] <- summaryDf
       }
     }

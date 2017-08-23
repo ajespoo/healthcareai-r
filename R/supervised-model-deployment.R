@@ -353,7 +353,7 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
         modifiableCols = self$params$modifiableVariables,
         info = self$modelInfo$featureDistributions,
         size = 2500,
-        spread = 1/4,
+        spread = 1/2,
         grainCol = self$params$grainCol, 
         predictedCol = self$params$predictedCol)
       
@@ -361,28 +361,76 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
       linA <- localLinearApproximation(baseRow = thisRow, 
                                        predictFunction = self$newPredictions,
                                        localDf = dfTemp)
-      
-      # Get the linear model's prediction for this row
       linAPrediction <- predict(linA, newdata = thisRow)
+      rfPrediction <- self$newPredictions(thisRow)$predictions
+      coefs <- linA$coefficients
+      intercept <- coefs[1]
       
-      # Get the ordered linear model coefficients
-      coefs <- getScaledCoeffs(linearModel = linA, 
-                               info = self$modelInfo$featureDistributions,
-                               orderByMagnitude = T)
+      oneRowDf <- do.call(rbind, lapply(self$params$modifiableVariables, function(col) {
+        if (is.numeric(thisRow[[col]])) {
+          slope <- coefs[[col]]
+          currentVal <- thisRow[[col]]
+          altVal1 <- thisRow[[col]] - 0.5*self$modelInfo$featureDistributions[[col]]
+          altVal2 <- thisRow[[col]] + 0.5*self$modelInfo$featureDistributions[[col]]
+          altProb1 <- linAPrediction - 0.5*slope
+          altProb2 <- linAPrediction + 0.5*slope
+          altRows <- rbind(thisRow, thisRow)
+          altRows[[col]] <- c(altVal1, altVal2)
+          altRfPrediction <- self$newPredictions(altRows)$predictions
+          oneVarDf <- data.frame(
+            variable = col,
+            currentVal = as.character(currentVal),
+            currentProbLM = linAPrediction,
+            currentProbRF = rfPrediction,
+            altValue = c(altVal1, altVal2),
+            altProbLM = c(altProb1, altProb2),
+            altProbRF = altRfPrediction,
+            delta = c(altProb1 - rfPrediction, altProb2 - rfPrediction),
+            intercept = intercept,
+            slope = slope/self$modelInfo$featureDistributions[[col]],
+            row.names = c(1,2),
+            stringsAsFactors = FALSE)
+        } else {
+          levels <- levels(thisRow[[col]])
+          oneVarDf <- data.frame(variable = col, 
+                                 currentVal = as.character(thisRow[[col]]),
+                                 currentProbLM = linAPrediction,
+                                 currentProbRF = rfPrediction,
+                                 altValue = as.character(levels), 
+                                 altProbLM = linAPrediction, 
+                                 altProbRF = rfPrediction,
+                                 delta = 0, 
+                                 intercept = intercept, 
+                                 slope = 0, 
+                                 row.names = as.character(levels),
+                                 stringsAsFactors = FALSE)
+          for (index in 1:length(levels)) {
+            level <- levels[index]
+            if (thisRow[[col]] != level) {
+              coefName <- paste0(col, level)
+              slope <- coefs[[coefName]]
+              altRow <- thisRow
+              altRow[[col]] <- factor(level, levels = levels)
+              altRfPrediction <- self$newPredictions(altRow)$predictions
+              oneVarDf[index, c("altProbLM",
+                                "altProbRF",
+                                "delta", 
+                                "slope")] <- c(linAPrediction + slope,
+                                               altRfPrediction,
+                                               slope,
+                                               slope)
+            }
+          }
+        }
+        
+        return(oneVarDf)
+      }))
       
-      # Add factors and weights to dataframe
-      tmp <- lapply(seq_along(coefs), function(i) 
-        structure(data.frame(names(coefs)[i], signif(coefs[i], 4), 
-                             row.names = NULL, stringsAsFactors = FALSE), 
-                  names = paste0("Modify", i, c("TXT", "WT"))))
-      tmp["LMPrediction"] <- signif(linAPrediction, 4)
-      tmp["LMIntercept"] <- signif(attr(coefs, "intercept"), 4)
-      
-      return(do.call(cbind, tmp))
+      oneRowDf <- oneRowDf[order(oneRowDf$delta, decreasing = FALSE), ]
     })
     
-    # Combine grain column and modifiable factors into a dataframe
-    return(cbind(data.frame(GrainID = grainColumn), do.call(rbind, dfList)))
+    names(dfList) <- grainColumn
+    return(dfList)
   },
   
   # Create the dataframe of modifiable factors
@@ -391,7 +439,7 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
     if (!is.null(self$params$modifiableVariables)) {
       
       allRowNumbers <- 1:length(private$grainTest)
-      
+
       if (is.null(nrow(private$modifiableFactorsDf))) {
         if (!is.null(rowNumbers)) {
           tempDf <- private$computeModifiableFactors(rowNumbers)
@@ -407,9 +455,8 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
           # Compute new rows
           tempDf2 <- private$computeModifiableFactors(rowNumbers)
           # Combine with old df and arrange by grainID
-          tempDf3 <- rbind(tempDf1, tempDf2)
-          private$modifiableFactorsDf <- tempDf3[order(tempDf3$GrainID), ]
-          row.names(private$modifiableFactorsDf) <- NULL
+          tempDf3 <- c(tempDf1, tempDf2)
+          private$modifiableFactorsDf <- tempDf3[order(names(tempDf3)), ]
         }
       }
     }
@@ -523,9 +570,48 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
         }
       }
 
-      # Return dataframe of modifiable factors and their weights
-      return(private$modifiableFactorsDf[private$modifiableFactorsDf$GrainID 
-                                         %in% private$grainTest[rowNumbers], ])
+      # # Return dataframe of modifiable factors and their weights
+      # return(private$modifiableFactorsDf[private$modifiableFactorsDf$GrainID 
+      #                                    %in% private$grainTest[rowNumbers], ])
+      
+      indices <- names(private$modifiableFactorsDf) %in% 
+        private$grainTest[rowNumbers]
+      
+      repeatedFactors <- FALSE
+      numTopFactors <- 3
+      
+      modFactorsList <- private$modifiableFactorsDf[indices]
+      
+
+      if (!repeatedFactors) {
+        modFactorsList <- lapply(modFactorsList, function(rowDf) {
+          rowDf <- rowDf[!duplicated(rowDf[, 1]), ]
+          return(rowDf[, c(1, 2, 4, 5, 6, 8)])
+        })
+      } else {
+        modFactorsList <- lapply(modFactorsList, function(rowDf) {
+          return(rowDf[, c(1, 2, 4, 5, 6, 8)])
+        })
+      }
+      
+      # Aetermine the maximum number of modifiable factors
+      numTopFactors <- min(numTopFactors, nrow(modFactorsList[1]))
+      # Combine into dataframe
+      modFactorsDf <- do.call(rbind, lapply(modFactorsList, function(rowDf){
+        do.call(cbind, lapply(1:numTopFactors, function(i) {
+          row <- rowDf[i, ]
+          names(row) <- c(paste0("Modify", i, "TXT"),
+                          paste0("Modify", i, "CurrentVal"), 
+                          paste0("Modify", i, "CurrentProb"),
+                          paste0("Modify", i, "AltVal"),
+                          paste0("Modify", i, "AltProb"),
+                          paste0("Modify", i, "Delta"))
+          return(row)
+        }))
+      }))
+      row.names(modFactorsDf) <- NULL
+      
+      return(modFactorsDf)
     },
     
     getModifiableFactorsDf2 = function(numberOfPercentiles = 12) {
