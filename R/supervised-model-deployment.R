@@ -380,8 +380,6 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
           oneVarDf <- data.frame(
             variable = col,
             currentVal = as.character(currentVal),
-            currentProbLM = linAPrediction,
-            currentProbRF = rfPrediction,
             altValue = c(altVal1, altVal2),
             altProbLM = c(altProb1, altProb2),
             altProbRF = altRfPrediction,
@@ -394,8 +392,6 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
           levels <- levels(thisRow[[col]])
           oneVarDf <- data.frame(variable = col, 
                                  currentVal = as.character(thisRow[[col]]),
-                                 currentProbLM = linAPrediction,
-                                 currentProbRF = rfPrediction,
                                  altValue = as.character(levels), 
                                  altProbLM = linAPrediction, 
                                  altProbRF = rfPrediction,
@@ -417,7 +413,7 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
                                 "delta", 
                                 "slope")] <- c(linAPrediction + slope,
                                                altRfPrediction,
-                                               slope,
+                                               linAPrediction + slope - rfPrediction,
                                                slope)
             }
           }
@@ -425,10 +421,11 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
         
         return(oneVarDf)
       }))
-      
       oneRowDf <- oneRowDf[order(oneRowDf$delta, decreasing = FALSE), ]
+      attr(oneRowDf, "currentProbLM") <- linAPrediction
+      attr(oneRowDf, "currentProbRF") <- rfPrediction
+      return(oneRowDf)
     })
-    
     names(dfList) <- grainColumn
     return(dfList)
   },
@@ -581,16 +578,15 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
       numTopFactors <- 3
       
       modFactorsList <- private$modifiableFactorsDf[indices]
-      
 
       if (!repeatedFactors) {
         modFactorsList <- lapply(modFactorsList, function(rowDf) {
           rowDf <- rowDf[!duplicated(rowDf[, 1]), ]
-          return(rowDf[, c(1, 2, 4, 5, 6, 8)])
+          return(rowDf[, c(1, 2, 3, 4, 6)])
         })
       } else {
         modFactorsList <- lapply(modFactorsList, function(rowDf) {
-          return(rowDf[, c(1, 2, 4, 5, 6, 8)])
+          return(rowDf[, c(1, 2, 3, 4, 6)])
         })
       }
       
@@ -602,7 +598,6 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
           row <- rowDf[i, ]
           names(row) <- c(paste0("Modify", i, "TXT"),
                           paste0("Modify", i, "CurrentVal"), 
-                          paste0("Modify", i, "CurrentProb"),
                           paste0("Modify", i, "AltVal"),
                           paste0("Modify", i, "AltProb"),
                           paste0("Modify", i, "Delta"))
@@ -611,7 +606,8 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
       }))
       row.names(modFactorsDf) <- NULL
       
-      return(modFactorsDf)
+      grainAndPrediction <- private$outDf[rowNumbers, c(4,5)]
+      return(cbind(grainAndPrediction, modFactorsDf))
     },
     
     getModifiableFactorsDf2 = function(numberOfPercentiles = 12) {
