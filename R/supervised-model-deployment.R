@@ -424,6 +424,7 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
       oneRowDf <- oneRowDf[order(oneRowDf$delta, decreasing = FALSE), ]
       attr(oneRowDf, "currentProbLM") <- linAPrediction
       attr(oneRowDf, "currentProbRF") <- rfPrediction
+      attr(oneRowDf, "grainID") <- grainColumn[i]
       return(oneRowDf)
     })
     names(dfList) <- grainColumn
@@ -629,12 +630,13 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
         stop("Must provide a row number or grain column ID")
       } else if (length(grainID) == 0) {
         baseRow <- self$params$df[rowNumber, ]
-        modDfRow <- private$modifiableFactorsDf[rowNumber, ]
+        modDfRow <- private$modifiableFactorsDf[[rowNumber]]
       } else {
         baseRow <- self$params$df[private$grainTest == grainID, ]
-        modDfRow <- private$modifiableFactorsDf[private$grainTest == grainID, ]
+        modDfRow <- unlist(private$modifiableFactorsDf[private$grainTest == grainID])
       }
-      if (is.na(modDfRow$GrainID)) {
+
+      if (!is.data.frame(modDfRow)) {
         stop(paste0("No modifiable factors were computed for this row.\n",
                     "You may use getModifiableFactorsDF with ",
                     "computeMissing = TRUE to compute these."))

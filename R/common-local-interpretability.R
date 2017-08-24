@@ -287,29 +287,28 @@ plotVariableEffects = function(baseRow,
         points(currentValue, uniRow$slope*currentValue + uniRow$intercept, 
                pch = 8, col = "blue")
       }
-      
+
+      # Plot multivariate approximation
       if (!is.null(modifiableDfRow)) {
-        points(baseRow[[col]],modifiableDfRow$LMPrediction, 
+        points(baseRow[[col]],attr(modifiableDfRow, "currentProbLM"), 
                pch = 8, col = "red")
                
         if (is.numeric(baseRow[[col]])) {
-          numIndex <- which(modifiableDfRow == col) + 1
-          slope <- as.numeric(modifiableDfRow[numIndex])/sd
-          xCoords <- baseRow[[col]] + 0.5*sd*c(-1, 1)
-          yCoords <- slope*(xCoords - baseRow[[col]]) + LMrowPred
+          xCoords <- as.numeric(modifiableDfRow$altValue[modifiableDfRow$variable == col])
+          yCoords <- as.numeric(modifiableDfRow$altProbLM[modifiableDfRow$variable == col])
+
           lines(xCoords, yCoords, col = "red", lwd = lineWidth)
         } else {
           for (level in info[[col]]) {
             if (level != baseRow[[col]]) {
-              factorIndex <- which(modifiableDfRow == paste0(col, level)) + 1
-              slope <- as.numeric(modifiableDfRow[factorIndex])
               xCoord <- factor(level, levels = info[[col]])
-              yCoord <- slope + modifiableDfRow$LMPrediction
+              yCoord <- as.numeric(modifiableDfRow$altProbLM[(modifiableDfRow$variable == col) 
+                                                             & (modifiableDfRow$altValue == level)])
               points(xCoord, y = yCoord, pch = 1, col = "red")
             }
           }
         }
-      mtext(paste("Grain Column ID:", modifiableDfRow$GrainID), 
+      mtext(paste("Grain Column ID:", attr(modifiableDfRow, "grainID")), 
             outer = TRUE, cex = 1)
       }
     }
