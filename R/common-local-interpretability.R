@@ -439,6 +439,33 @@ singleNumericVariableDf = function(baseRow,
   return(df)
 }
 
+singleNumericVariableDf2 = function(baseRow, 
+                                   variable,
+                                   info,
+                                   nonConstant,
+                                   size = 200) {
+  # dummy column to set number of rows for dataframe
+  df <- rbind()
+  for (col in names(baseRow)) {
+    baseValue <- baseRow[[col]]
+    # if modifiable, fill with ...
+    if (col  == variable) {
+      if (is.null(center)) {
+        df[[col]] <- seq(interval[1], interval[2], length.out = size)
+      } else {
+        leftHalf <- seq(interval[1], center, length.out = size/2)
+        rightHalf <- seq(center, interval[2], length.out = size/2)
+        df[[col]] <- c(leftHalf, rightHalf)
+      }
+    } else {# not modifiable -> repeat baseValue throughout
+      df[[col]] <- rep(baseValue, times = size)
+    }
+  }
+  # drop temp column
+  df$temp_column_to_drop <- NULL
+  return(df)
+}
+
 #' @title
 #' Build a dataframe whose rows all agree except in one categorical column.
 #' 
