@@ -440,29 +440,40 @@ singleNumericVariableDf = function(baseRow,
 }
 
 singleNumericVariableDf2 = function(baseRow, 
-                                   variable,
-                                   info,
-                                   nonConstant,
-                                   size = 200) {
+                                    variable,
+                                    info,
+                                    nonConstant,
+                                    scale = 1/2,
+                                    size = 200,
+                                    skew = NULL) {
   # dummy column to set number of rows for dataframe
-  df <- rbind()
+  df <- rbind(baseRow[rep(1, times = size), ])
   for (col in names(baseRow)) {
     baseValue <- baseRow[[col]]
-    # if modifiable, fill with ...
+    sd <- info[[col]]
+    # modify modifiable and nonConstant
     if (col  == variable) {
-      if (is.null(center)) {
-        df[[col]] <- seq(interval[1], interval[2], length.out = size)
-      } else {
-        leftHalf <- seq(interval[1], center, length.out = size/2)
-        rightHalf <- seq(center, interval[2], length.out = size/2)
-        df[[col]] <- c(leftHalf, rightHalf)
+      # Set range of values for modifiable
+      lowerScale <- scale*sd
+      upperScale <- scale*sd
+      if (skew = "positive") {
+        lowerScale <- lowerScale*1/4
+      } else if (skew = "negative") {
+        upperScale <- upperScale*1/4
       }
-    } else {# not modifiable -> repeat baseValue throughout
-      df[[col]] <- rep(baseValue, times = size)
+      
+      df[[col]] <- seq(baseValue - lowerScale, 
+                       baseValue + upperScale, 
+                       length.out = size)
+    } else if (col %in% nonConstant) {
+      # Add noise to nonConstant numeric
+      if (is.numeric(baseRow[[col]])) {
+        df[[col]] <- df[[col]] + rnorm(n = size,
+                                       mean = 0, 
+                                       sd = scale*sd/5)
+      }
     }
   }
-  # drop temp column
-  df$temp_column_to_drop <- NULL
   return(df)
 }
 
