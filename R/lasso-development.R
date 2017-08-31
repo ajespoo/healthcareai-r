@@ -61,6 +61,7 @@
 #' @references \url{http://healthcareai-r.readthedocs.io}
 #' @seealso \code{\link{RandomForestDevelopment}}
 #' @seealso \code{\link{LinearMixedModelDevelopment}}
+#' @seealso \code{\link{selectData}}
 #' @seealso \code{\link{healthcareai}}
 #' @examples
 #'
@@ -214,6 +215,8 @@ LassoDevelopment <- R6Class("LassoDevelopment",
     modMat = NA,
     predictions = NA,
     
+    algorithmShortName = "lasso",
+    
     # Performance metrics
     ROCPlot = NA,
     PRCurvePlot = NA,
@@ -232,9 +235,6 @@ LassoDevelopment <- R6Class("LassoDevelopment",
     # i.e. p = SuperviseModelParameters$new()
     initialize = function(p) {
       super$initialize(p)
-      if (is.null(self$params$modelName)) {
-        self$params$modelName = "lasso"
-      }
     },
 
     getPredictions = function(){

@@ -46,6 +46,8 @@
 #' \emph{Usage:} \code{$getOutDf()} 
 #' @export
 #' @seealso \code{\link{healthcareai}}
+#' @seealso \code{\link{writeData}}
+#' @seealso \code{\link{selectData}}
 #' @examples
 #' 
 #' #### Classification Example using csv data ####
@@ -424,7 +426,7 @@ LassoDeployment <- R6Class(
     modMat = NA,
     
     predictions = NA,
-    modelName = 'lasso',
+    algorithmShortName = 'lasso',
     algorithmName = 'Lasso',
     
     # Functions

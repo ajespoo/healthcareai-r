@@ -64,6 +64,8 @@
 #' 
 #' @export
 #' @seealso \code{\link{healthcareai}}
+#' @seealso \code{\link{writeData}}
+#' @seealso \code{\link{selectData}}
 #' @examples
 #' 
 #' #### Classification Example using csv data ####
@@ -439,7 +441,7 @@ RandomForestDeployment <- R6Class("RandomForestDeployment",
     
     fitRF = NA,
     predictions = NA,
-    modelName = 'RF',
+    algorithmShortName = 'RF',
     algorithmName = 'RandomForest',
 
     # functions

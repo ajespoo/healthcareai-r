@@ -51,6 +51,8 @@
 #' \emph{Usage:} \code{$getOutDf()} 
 #' @export
 #' @seealso \code{\link{healthcareai}}
+#' @seealso \code{\link{writeData}}
+#' @seealso \code{\link{selectData}}
 #' @examples
 #' 
 #' #### Classification Example using csv data ####
@@ -433,7 +435,7 @@ LinearMixedModelDeployment <- R6Class("LinearMixedModelDeployment",
     
     fitLmm = NA,
     predictions = NA,
-    modelName = 'LMM',
+    algorithmShortName = 'LMM',
     algorithmName = 'LinearMixedModel',
 
     # functions

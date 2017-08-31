@@ -27,6 +27,8 @@ SupervisedModelDevelopment <- R6Class("SupervisedModelDevelopment",
     prevalence = NA,
     factorLevels = NA,
     imputeVals = NA,
+    
+    algorithmShortName = NA,
 
     clustersOnCores = NA,
     grainColValues = NA,
@@ -62,12 +64,24 @@ SupervisedModelDevelopment <- R6Class("SupervisedModelDevelopment",
       if (!is.null(p$df))
         self$params$df <- p$df
 
-      if (!is.null(p$grainCol))
+      if (p$grainCol != "") {
+        if (p$grainCol %in% colnames(p$df)) {
         self$params$grainCol <- p$grainCol
-
-      if (!is.null(p$predictedCol))
+        } else {
+          stop("Your specified grainCol is not in your development data.\n",
+               "Please check your specifications.")
+        }
+      }
+    
+      if (!is.null(p$predictedCol)) {
+        if (p$predictedCol %in% colnames(p$df)) {
         self$params$predictedCol <- p$predictedCol
-
+        } else { 
+          stop("Your specified predictedCol is not in your development data.\n",
+               "Please check your specifications.")
+        }
+      }
+    
       if (!is.null(p$personCol))
         self$params$personCol <- p$personCol
 
@@ -318,10 +332,7 @@ SupervisedModelDevelopment <- R6Class("SupervisedModelDevelopment",
       self$params$df <- self$params$df[,colSums(is.na(self$params$df)) < nrow(self$params$df)]
 
       # Remove date columns
-      dateList <- grep("DTS$", colnames(self$params$df))
-      if (length(dateList) > 0) {
-        self$params$df <- self$params$df[, -dateList]
-      }
+      self$params$df <- removeColsWithDTSSuffix(self$params$df)
 
       if (isTRUE(self$params$debug)) {
         print('Entire data set after removing cols with DTS (ie date cols)')
@@ -349,6 +360,11 @@ SupervisedModelDevelopment <- R6Class("SupervisedModelDevelopment",
       
       # Save column names for deploy
       self$modelInfo$columnNames <- names(self$params$df)
+      
+      # Save model parameters for deploy
+      self$modelInfo$type <- self$params$type
+      self$modelInfo$predictedCol <- self$params$predictedCol
+      self$modelInfo$grainCol <- self$params$grainCol
       
       # Perform train/test split
 
@@ -498,9 +514,15 @@ SupervisedModelDevelopment <- R6Class("SupervisedModelDevelopment",
       modelInfo <- self$modelInfo
       
       # Set file names for model and associated information
-      fitObjFile <- paste("rmodel_probability_", self$params$modelName, ".rda", 
+      modelName <- ifelse(is.null(self$params$modelName),
+                          "",
+                          paste0(self$params$modelName, "_"))
+      
+      fitObjFile <- paste("rmodel_probability_", modelName, 
+                          private$algorithmShortName, ".rda", 
                           sep = "")
-      modelInfoFile <- paste("rmodel_info_", self$params$modelName, ".rda", 
+      modelInfoFile <- paste("rmodel_info_", modelName, 
+                             private$algorithmShortName, ".rda", 
                              sep = "")
 
       # Save model and associated information

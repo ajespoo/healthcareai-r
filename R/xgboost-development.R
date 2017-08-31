@@ -52,6 +52,7 @@
 #' \url{http://archive.ics.uci.edu/ml/datasets/dermatology/}
 #' @seealso Information on the xgboost parameters can be found at:
 #' \url{https://github.com/dmlc/xgboost/blob/master/doc/parameter.md}
+#' @seealso \code{\link{selectData}}
 #' 
 #' @examples
 #'
@@ -116,6 +117,8 @@ XGBoostDevelopment <- R6Class("XGBoostDevelopment",
     grid = NA,
     predictions = NA,
     test_label = NA,
+    
+    algorithmShortName = "XGB",
 
     # Performance metrics
     ROCPlot = NA,
@@ -207,9 +210,6 @@ XGBoostDevelopment <- R6Class("XGBoostDevelopment",
 
       set.seed(43)
       super$initialize(p)
-      if (is.null(self$params$modelName)) {
-        self$params$modelName = "XGB"
-      }
 
       # TODO set up tuning to actually work.
       if (!is.null(p$tune)) {

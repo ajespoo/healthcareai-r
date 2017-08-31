@@ -45,6 +45,8 @@
 #' \emph{Usage:} \code{$getOutDf()} 
 #' @export
 #' @seealso \code{\link{healthcareai}}
+#' @seealso \code{\link{writeData}}
+#' @seealso \code{\link{selectData}}
 #' @examples
 #' #### Example using csv dataset ####
 #' ptm <- proc.time()
@@ -232,7 +234,7 @@
     temp_predictions = NA,
     orderedProbs = NA,
 
-    modelName = 'XGB',
+    algorithmShortName = 'XGB',
     algorithmName = 'XGBoost',
 
     # functions
