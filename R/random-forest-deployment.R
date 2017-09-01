@@ -573,9 +573,10 @@ RandomForestDeployment <- R6Class("RandomForestDeployment",
                                modifiableCols = self$params$modifiableVariables,
                                nonConstantCols = self$params$nonConstantVariables,
                                info = self$modelInfo$featureDistributions,
+                               info2 = self$modelInfo$featureDistributions2,
                                predictFunction = self$newPredictions,
                                scale = 1/2,
-                               lowerProbGoal = TRUE)})
+                               lowerProbGoal = self$params$lowerProbabilityGoal)})
       tf <- proc.time() - t0
       print(paste0("Modifiable factors computed in ",
                    signif(tf[3],4), " seconds."))

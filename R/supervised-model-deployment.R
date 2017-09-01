@@ -99,6 +99,9 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
   
   if (!is.null(p$nonConstantVariables))
   self$params$nonConstantVariables <- p$nonConstantVariables
+  
+  if (!is.null(p$lowerProbabilityGoal))
+  self$params$lowerProbabilityGoal <- p$lowerProbabilityGoal
 
   # for deploy method
   if (!is.null(p$cores))

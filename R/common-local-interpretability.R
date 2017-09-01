@@ -328,7 +328,8 @@ plotVariableEffects2 = function(baseRow,
                                 info2,
                                 predictFunction,
                                 spread = 2, 
-                                grid = NULL) {
+                                grid = NULL, 
+                                lowerProbGoal = TRUE) {
   # By default, display at most 8 graphs
   if (is.null(grid)) {
     numberOfPlots <- length(modifiableCols)
@@ -342,9 +343,10 @@ plotVariableEffects2 = function(baseRow,
                                        modifiableCols = modifiableCols,
                                        nonConstantCols = nonConstantCols,
                                        info = info,
+                                       info2 = info2,
                                        scale = 1/2,
                                        predictFunction = predictFunction,
-                                       lowerProbGoal = TRUE)
+                                       lowerProbGoal = lowerProbGoal)
   
   oldGraphicalParams1 <- par()$mfrow
   oldGraphicalParams2 <- par()$oma
@@ -828,8 +830,8 @@ modifiableFactors1Row2 = function(baseRow,
     # Compute alternate values and probabilities for numeric variables
     if (is.numeric(baseRow[[col]])) {
       
-      global_min <- info2[[col]]
-      global_max <- info2[[col]]
+      global_min <- info2[[col]][1]
+      global_max <- info2[[col]][101]
       
       # Build first linear model
       # Build dataframe with variable ranging within quantile range
@@ -847,7 +849,7 @@ modifiableFactors1Row2 = function(baseRow,
       balancedSlope <- balancedLM$coefficients[2]
       
       # Build second linear model
-      
+
       # First check slopes
       if ((balancedSlope < 0 & lowerProbGoal)
           | (balancedSlope > 0 & !lowerProbGoal)) {
@@ -866,6 +868,7 @@ modifiableFactors1Row2 = function(baseRow,
       
       # Case 1: want to shift to the right
       if (shiftRight) {
+        browser()
         # skew interval to the right
         altValue <- min(baseRow[[col]] + scale*info[[col]], global_max)
         skewedDf <- singleNumericVariableDf2(baseRow = baseRow,
