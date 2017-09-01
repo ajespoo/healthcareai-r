@@ -600,6 +600,15 @@ RandomForestDeployment <- R6Class("RandomForestDeployment",
         predictions <- caret::predict.train(private$fitRF, newdata = newData)
       }
       return(data.frame(predictions))
+    },
+    
+    getModifiableFactorsDf3 = function(repeatedFactors = FALSE, 
+                                       numTopFactors = 3) {
+      modFactorDf <- buildTopModifiableFactorsDf2(self$modifiableFactorsList,
+                                                  repeatedFactors, 
+                                                  numTopFactors)
+      return(cbind(private$outDf[, c(self$params$grainCol, "PredictedProbNBR")], 
+                   modFactorDf))
     }
   )
 )
