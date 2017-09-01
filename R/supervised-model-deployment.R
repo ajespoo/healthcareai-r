@@ -96,6 +96,9 @@ SupervisedModelDeployment <- R6Class("SupervisedModelDeployment",
   
   if (!is.null(p$modifiableVariables))
   self$params$modifiableVariables <- p$modifiableVariables
+  
+  if (!is.null(p$nonConstantVariables))
+  self$params$nonConstantVariables <- p$nonConstantVariables
 
   # for deploy method
   if (!is.null(p$cores))

@@ -320,6 +320,105 @@ plotVariableEffects = function(baseRow,
   })
 }
 
+
+plotVariableEffects2 = function(baseRow,  
+                                modifiableCols,
+                                nonConstantCols,
+                                info,
+                                info2,
+                                predictFunction,
+                                spread = 2, 
+                                grid = NULL) {
+  # By default, display at most 8 graphs
+  if (is.null(grid)) {
+    numberOfPlots <- length(modifiableCols)
+    displayRows <- min(2, ceiling(numberOfPlots/4))
+    displayCols <- min(4, numberOfPlots)
+    grid <- c(displayRows, displayCols)
+  }
+  
+  # Compute modifiable factors using univariate method
+  univariate <- modifiableFactors1Row2(baseRow = baseRow,
+                                       modifiableCols = modifiableCols,
+                                       nonConstantCols = nonConstantCols,
+                                       info = info,
+                                       scale = 1/2,
+                                       predictFunction = predictFunction,
+                                       lowerProbGoal = TRUE)
+  
+  oldGraphicalParams1 <- par()$mfrow
+  oldGraphicalParams2 <- par()$oma
+  tryCatch({
+    par(mfrow = grid, oma = c(2,2,2,2))
+    
+    for (col in modifiableCols) {
+      # Build dataframe with variation in a single column
+      if (is.numeric(baseRow[[col]])) {
+        # Add column with variation to df
+        sd <- info[[col]]
+        singleVarDf <- data.frame(seq(from = info2[[col]][1],
+                                      to = info2[[col]][101],
+                                      length.out = 1000))  
+      } else {
+        singleVarDf <- data.frame(factor(info[[col]], levels = info[[col]]))
+      }
+      names(singleVarDf) <- c(col)
+      
+      # Add the other columns
+      for (col2 in names(baseRow)) {
+        if (col2 != col) singleVarDf[[col2]] <- baseRow[[col2]]
+      }
+      
+      labels <- predictFunction(singleVarDf)
+      rowPred <- predictFunction(baseRow)
+      
+      # Set axes labels, limits
+      yAxisLabel <- "Probability"
+      yAxisLimits <- c(0,1)
+      
+      # Plot model values
+      lineWidth <- ifelse(is.numeric(baseRow[[col]]), 1.75, 1)
+      
+      plot(singleVarDf[[col]], labels$predictions, type = "l",
+           ylim = yAxisLimits, xlab = col, ylab = yAxisLabel, lwd = lineWidth)
+      
+      abline(h = rowPred, lty = "dashed")
+      points(baseRow[[col]], rowPred, pch = 16, cex = 1.5)
+      
+      # Plot univariate approximation
+      if (is.numeric(baseRow[[col]])) {
+        uniRow <- univariate[univariate$variable == col, ]
+        currentValue <- as.numeric(uniRow$currentValue)
+        altValue <- as.numeric(uniRow$altValue)
+        xCoords <- c(1.25*currentValue - 0.25*altValue, altValue)
+        yCoords <- uniRow$slope*xCoords + uniRow$intercept
+        lines(xCoords, yCoords, col = "red", lwd = lineWidth)
+        
+        points(currentValue, uniRow$slope*currentValue + uniRow$intercept, 
+               pch = 8, col = "red")
+      } else {
+        factorDf <- univariate[univariate$variable == col, ]
+        for (level in info[[col]]) {
+          uniRow <- factorDf[factorDf$altValue == level, ]
+          if (level == uniRow$currentValue) {
+            plotch <- 8
+          } else {
+            plotch <- 16
+          }
+          points(x = factor(uniRow$altValue, levels = info[[col]]), 
+                 y = uniRow$altProb, 
+                 pch = plotch, col = "red")
+        }
+      }
+    }
+  }, error = function(e) {
+    message(e)
+  }, finally =  {
+    # Reset the graphics parameters even if an error was raised
+    par(mfrow = oldGraphicalParams1, oma = oldGraphicalParams2)
+  })
+}
+
 #' @title
 #' Get a percentile interval.
 #'
@@ -444,22 +543,24 @@ singleNumericVariableDf2 = function(baseRow,
                                     info,
                                     nonConstant,
                                     scale = 1/2,
-                                    size = 200,
+                                    size = 500,
                                     skew = NULL) {
   # dummy column to set number of rows for dataframe
   df <- rbind(baseRow[rep(1, times = size), ])
   for (col in names(baseRow)) {
     baseValue <- baseRow[[col]]
-    sd <- info[[col]]
     # modify modifiable and nonConstant
     if (col  == variable) {
       # Set range of values for modifiable
+      sd <- info[[col]]
       lowerScale <- scale*sd
       upperScale <- scale*sd
-      if (skew = "positive") {
-        lowerScale <- lowerScale*1/4
-      } else if (skew = "negative") {
-        upperScale <- upperScale*1/4
+      if (!is.null(skew)) {
+        if (skew == "positive") {
+          lowerScale <- lowerScale*1/4
+        } else if (skew == "negative") {
+          upperScale <- upperScale*1/4
+        }
       }
       
       df[[col]] <- seq(baseValue - lowerScale, 
@@ -468,9 +569,10 @@ singleNumericVariableDf2 = function(baseRow,
     } else if (col %in% nonConstant) {
       # Add noise to nonConstant numeric
       if (is.numeric(baseRow[[col]])) {
+        sd <- info[[col]]
         df[[col]] <- df[[col]] + rnorm(n = size,
                                        mean = 0, 
-                                       sd = scale*sd/5)
+                                       sd = scale*sd/10)
       }
     }
   }
@@ -512,6 +614,31 @@ singleFactorVariableDf = function(baseRow,
   }
   # drop temp column
   df$temp_column_to_drop <- NULL
+  return(df)
+}
+
+singleFactorVariableDf2 = function(baseRow,
+                                  variable,
+                                  factorLevels,
+                                  info,
+                                  nonConstant, 
+                                  scale = 1/2,
+                                  size = 500) {
+  # dummy column to set number of rows for dataframe
+  df <- rbind(baseRow[rep(1, times = size), ])
+  for (col in names(baseRow)) {
+    if (col %in% nonConstant & is.numeric(baseRow[[col]])) {
+      sd <- info[[col]]
+      df[[col]] <- df[[col]] + rnorm(n = size,
+                                     mean = 0, 
+                                     sd = scale*sd/10)
+    }
+  }
+  df <- do.call(rbind, lapply(factorLevels, function(level) {
+    levelDf <- df
+    levelDf[[variable]] <- factor(level, levels = factorLevels)
+    return(levelDf)
+  }))
   return(df)
 }
 
@@ -652,6 +779,151 @@ buildTopModifiableFactorsDf = function(df,
                           numberOfPercentiles = numberOfPercentiles)})
   
   # Drop slope and intercept columns and drop repeated top variables if 
+  # appropriate
+  if (!repeatedFactors) {
+    modFactorList <- lapply(modFactorsList, function(rowDf) {
+      rowDf <- rowDf[!duplicated(rowDf[, 1]), ]
+      return(rowDf[, 1:5])
+    })
+  } else {
+    modFactorList <- lapply(modFactorsList, function(rowDf) {
+      return(rowDf[, 1:5])
+    })
+  }
+  
+  # Aetermine the maximum number of modifiable factors
+  numTopFactors <- min(numTopFactors, nrow(modFactorsList[1]))
+  # Combine into dataframe
+  modFactorsDf <- do.call(rbind, lapply(modFactorList, function(rowDf){
+    do.call(cbind, lapply(1:numTopFactors, function(i) {
+      row <- rowDf[i, ]
+      names(row) <- c(paste0("Modify", i, "TXT"),
+                      paste0("Modify", i, "Current"), 
+                      paste0("Modify", i, "AltValue"),
+                      paste0("Modify", i, "AltProb"),
+                      paste0("Modify", i, "Delta"))
+      return(row)
+    }))
+  }))
+  row.names(modFactorsDf) <- NULL
+  
+  return(modFactorsDf)
+}
+
+modifiableFactors1Row2 = function(baseRow, 
+                                  modifiableCols,
+                                  nonConstantCols,
+                                  info,
+                                  predictFunction,
+                                  scale = 1/2,
+                                  lowerProbGoal = TRUE) {
+  currentProbRF <- predictFunction(baseRow)$predictions
+  
+  featureList <- list()
+  for (col in modifiableCols) {
+    # Save current value of the variable
+    currentValue <- baseRow[[col]]
+    
+    # Compute alternate values and probabilities for numeric variables
+    if (is.numeric(baseRow[[col]])) {
+      
+      # Build first linear model
+      # Build dataframe with variable ranging within quantile range
+      balancedDf <- singleNumericVariableDf2(baseRow = baseRow,
+                                             variable = col, 
+                                             info = info, 
+                                             nonConstant = nonConstantCols, 
+                                             skew = NULL,
+                                             #size = 200, 
+                                             scale = scale)
+      # Make predictions and train a linear model on these
+      balancedPredictions <- predictFunction(newData = balancedDf)
+      balancedLM <- lm(balancedPredictions$predictions ~ balancedDf[[col]])
+      # Extract linear model coefficients
+      balancedSlope <- balancedLM$coefficients[2]
+      
+      # Build second linear model
+      # Case 1: want to shift to the right
+      if ((balancedSlope < 0 & lowerProbGoal) 
+          || (balancedSlope > 0 & !lowerProbGoal)) {
+        # skew interval to the right
+        altValue <- baseRow[[col]] + scale*info[[col]]
+        skewedDf <- singleNumericVariableDf2(baseRow = baseRow,
+                                             variable = col,
+                                             info = info, 
+                                             nonConstant = nonConstantCols,
+                                             skew = "positive",
+                                             #size = 200, 
+                                             scale = scale)
+        # Case 2: want to shift to the left
+      } else {
+        # skew interval to the left
+        altValue <- baseRow[[col]] - scale*info[[col]]
+        skewedDf <- singleNumericVariableDf2(baseRow = baseRow,
+                                             variable = col,
+                                             info = info, 
+                                             nonConstant = nonConstantCols,
+                                             skew = "negative",
+                                             #size = 200, 
+                                             scale = scale)
+      }
+      
+      skewedPredictions <- predictFunction(newData = skewedDf)
+      skewedLM <- lm(skewedPredictions$predictions ~ skewedDf[[col]])
+      # Extract model coefficients
+      skewedSlope <- skewedLM$coefficients[2]
+      skewedIntercept <- skewedLM$coefficients[1]
+      
+      currentProb <- skewedSlope*currentValue + skewedIntercept
+      altProb <- skewedSlope*altValue + skewedIntercept
+      delta <- altProb - currentProb
+      
+      summaryDf <- data.frame(variable = col, 
+                              currentValue = currentValue,
+                              altValue = signif(altValue, 4),
+                              altProb = signif(currentProbRF + delta, 4),
+                              delta = signif(delta, 4),
+                              intercept = skewedIntercept,
+                              slope = skewedSlope)
+      featureList[[col]] <- summaryDf
+      
+      # Compute alternate values and probabilities for categorical variables
+    } else {
+      levels <- info[[col]]
+      perturbedDf <- singleFactorVariableDf2(baseRow = baseRow, 
+                                             variable = col, 
+                                             factorLevels = levels,
+                                             info = info, 
+                                             nonConstant = nonConstantCols)
+      predictions <- predictFunction(newData = perturbedDf)$predictions
+      currentProb <- mean(predictions[perturbedDf[[col]] == baseRow[[col]]])
+      for (level in levels) {
+        altProb <- mean(predictions[perturbedDf[[col]] == level])
+        delta <- altProb - currentProb
+        summaryDf <- data.frame(variable = col, 
+                                currentValue = as.character(currentValue),
+                                altValue = as.character(level),
+                                altProb = signif(currentProbRF + delta, 4),
+                                delta = signif(delta, 4), 
+                                intercept = NA,
+                                slope = NA,
+                                stringsAsFactors = FALSE)
+        featureList[[paste0(col, '.', level)]] <- summaryDf
+      }
+    }
+  }
+  
+  # Arrange the featureList into a dataframe
+  tempDf <- do.call(rbind, featureList)
+  # Order by delta
+  return(tempDf[order(tempDf$delta, decreasing = !lowerProbGoal), ])
+}
+
+
+buildTopModifiableFactorsDf2 = function(modFactorsList,
+                                        repeatedFactors = FALSE,
+                                        numTopFactors = 3) {
+   # Drop slope and intercept columns and drop repeated top variables if 
   # appropriate
   if (!repeatedFactors) {
     modFactorList <- lapply(modFactorsList, function(rowDf) {

@@ -515,6 +515,9 @@ RandomForestDeployment <- R6Class("RandomForestDeployment",
 
   #Public members
   public = list(
+    
+    modifiableFactorsList = NA,
+    
     #Constructor
     #p: new SupervisedModelDeploymentParams class object,
     #   i.e. p = SupervisedModelDeploymentParams$new()
@@ -562,6 +565,20 @@ RandomForestDeployment <- R6Class("RandomForestDeployment",
       # Create modifiable factors df
       #super$createModifiableFactorsDf(1:length(private$grainTest))
       super$createModifiableFactorsDf(NULL)
+      
+      t0 <- proc.time()
+      print("Computing modifiable factors...")
+      self$modifiableFactorsList <- lapply(1:nrow(self$params$df), function(i) {
+        modifiableFactors1Row2(baseRow = self$params$df[i, ], 
+                               modifiableCols = self$params$modifiableVariables,
+                               nonConstantCols = self$params$nonConstantVariables,
+                               info = self$modelInfo$featureDistributions,
+                               predictFunction = self$newPredictions,
+                               scale = 1/2,
+                               lowerProbGoal = TRUE)})
+      tf <- proc.time() - t0
+      print(paste0("Modifiable factors computed in ",
+                   signif(tf[3],4), " seconds."))
     },
     
     # Surface outDf as attribute for export to Oracle, MySQL, etc
