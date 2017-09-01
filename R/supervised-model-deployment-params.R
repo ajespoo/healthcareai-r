@@ -36,6 +36,7 @@ SupervisedModelDeploymentParams <- R6Class("SupervisedModelDeploymentParams",
     # for modifiable factor recommendations
     modifiableVariables = NULL,
     nonConstantVariables = NULL,
+    lowerProbabilityGoal = TRUE,
 
     #Constructor
     initialize = function() {

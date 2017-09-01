@@ -814,6 +814,7 @@ modifiableFactors1Row2 = function(baseRow,
                                   modifiableCols,
                                   nonConstantCols,
                                   info,
+                                  info2, 
                                   predictFunction,
                                   scale = 1/2,
                                   lowerProbGoal = TRUE) {
@@ -826,6 +827,9 @@ modifiableFactors1Row2 = function(baseRow,
     
     # Compute alternate values and probabilities for numeric variables
     if (is.numeric(baseRow[[col]])) {
+      
+      global_min <- info2[[col]]
+      global_max <- info2[[col]]
       
       # Build first linear model
       # Build dataframe with variable ranging within quantile range
@@ -843,11 +847,27 @@ modifiableFactors1Row2 = function(baseRow,
       balancedSlope <- balancedLM$coefficients[2]
       
       # Build second linear model
+      
+      # First check slopes
+      if ((balancedSlope < 0 & lowerProbGoal)
+          | (balancedSlope > 0 & !lowerProbGoal)) {
+        shiftRight <- TRUE
+      } else {
+        shiftRight <- FALSE
+      }
+      
+      # Overwrite if value is too extreme
+      if (currentValue <= global_min) {
+        shiftRight <- TRUE
+      }
+      if (currentValue >= global_max) {
+        shiftRight <- FALSE
+      }
+      
       # Case 1: want to shift to the right
-      if ((balancedSlope < 0 & lowerProbGoal) 
-          || (balancedSlope > 0 & !lowerProbGoal)) {
+      if (shiftRight) {
         # skew interval to the right
-        altValue <- baseRow[[col]] + scale*info[[col]]
+        altValue <- min(baseRow[[col]] + scale*info[[col]], global_max)
         skewedDf <- singleNumericVariableDf2(baseRow = baseRow,
                                              variable = col,
                                              info = info, 
@@ -858,7 +878,7 @@ modifiableFactors1Row2 = function(baseRow,
         # Case 2: want to shift to the left
       } else {
         # skew interval to the left
-        altValue <- baseRow[[col]] - scale*info[[col]]
+        altValue <- max(baseRow[[col]] - scale*info[[col]], global_min)
         skewedDf <- singleNumericVariableDf2(baseRow = baseRow,
                                              variable = col,
                                              info = info, 
