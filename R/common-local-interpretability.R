@@ -820,7 +820,7 @@ modifiableFactors1Row2 = function(baseRow,
                                   predictFunction,
                                   scale = 1/2,
                                   lowerProbGoal = TRUE) {
-  currentProbRF <- predictFunction(baseRow)$predictions
+  currentProbModel <- predictFunction(baseRow)$predictions
   
   featureList <- list()
   for (col in modifiableCols) {
@@ -849,50 +849,31 @@ modifiableFactors1Row2 = function(baseRow,
       balancedSlope <- balancedLM$coefficients[2]
       
       # Build second linear model
-
-      # First check slopes
-      if ((balancedSlope < 0 & lowerProbGoal)
-          | (balancedSlope > 0 & !lowerProbGoal)) {
-        shiftRight <- TRUE
-      } else {
-        shiftRight <- FALSE
-      }
-      
-      # Overwrite if value is too extreme
-      if (currentValue <= global_min) {
-        shiftRight <- TRUE
-      }
-      if (currentValue >= global_max) {
-        shiftRight <- FALSE
-      }
       
       # Case 1: want to shift to the right
-      if (shiftRight) {
-        browser()
+      if (wantRightSkew(slope = balancedSlope,
+                        currentValue = currentValue,
+                        globalMin = global_min, 
+                        globalMax = global_max,
+                        lowerProbGoal = lowerProbGoal)) {
         # skew interval to the right
         altValue <- min(baseRow[[col]] + scale*info[[col]], global_max)
-        skewedDf <- singleNumericVariableDf2(baseRow = baseRow,
-                                             variable = col,
-                                             info = info, 
-                                             nonConstant = nonConstantCols,
-                                             skew = "positive",
-                                             #size = 200, 
-                                             scale = scale)
-        # Case 2: want to shift to the left
-      } else {
+        skew <- "positive"
+      } else {# Case 2: want to shift to the left
         # skew interval to the left
         altValue <- max(baseRow[[col]] - scale*info[[col]], global_min)
-        skewedDf <- singleNumericVariableDf2(baseRow = baseRow,
-                                             variable = col,
-                                             info = info, 
-                                             nonConstant = nonConstantCols,
-                                             skew = "negative",
-                                             #size = 200, 
-                                             scale = scale)
+        skew <- "negative"
       }
-      
+      skewedDf <- singleNumericVariableDf2(baseRow = baseRow,
+                                           variable = col,
+                                           info = info, 
+                                           nonConstant = nonConstantCols,
+                                           skew = skew,
+                                           #size = 200, 
+                                           scale = scale)
       skewedPredictions <- predictFunction(newData = skewedDf)
       skewedLM <- lm(skewedPredictions$predictions ~ skewedDf[[col]])
+      
       # Extract model coefficients
       skewedSlope <- skewedLM$coefficients[2]
       skewedIntercept <- skewedLM$coefficients[1]
@@ -904,7 +885,7 @@ modifiableFactors1Row2 = function(baseRow,
       summaryDf <- data.frame(variable = col, 
                               currentValue = currentValue,
                               altValue = signif(altValue, 4),
-                              altProb = signif(currentProbRF + delta, 4),
+                              altProb = signif(currentProbModel + delta, 4),
                               delta = signif(delta, 4),
                               intercept = skewedIntercept,
                               slope = skewedSlope)
@@ -926,7 +907,7 @@ modifiableFactors1Row2 = function(baseRow,
         summaryDf <- data.frame(variable = col, 
                                 currentValue = as.character(currentValue),
                                 altValue = as.character(level),
-                                altProb = signif(currentProbRF + delta, 4),
+                                altProb = signif(currentProbModel + delta, 4),
                                 delta = signif(delta, 4), 
                                 intercept = NA,
                                 slope = NA,
@@ -976,4 +957,27 @@ buildTopModifiableFactorsDf2 = function(modFactorsList,
   row.names(modFactorsDf) <- NULL
   
   return(modFactorsDf)
+}
+
+wantRightSkew <- function(slope,
+                          currentValue, 
+                          globalMin, 
+                          globalMax,
+                          lowerProbGoal) {
+  # First check slopes
+  if ((slope < 0 & lowerProbGoal)
+      | (slope > 0 & !lowerProbGoal)) {
+    shiftRight <- TRUE
+  } else {
+    shiftRight <- FALSE
+  }
+  
+  # Overwrite if value is too extreme
+  if (currentValue <= globalMin) {
+    shiftRight <- TRUE
+  }
+  if (currentValue >= globalMax) {
+    shiftRight <- FALSE
+  }
+  return(shiftRight)
 }
