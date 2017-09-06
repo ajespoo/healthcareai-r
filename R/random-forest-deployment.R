@@ -573,7 +573,7 @@ RandomForestDeployment <- R6Class("RandomForestDeployment",
                                modifiableCols = self$params$modifiableVariables,
                                nonConstantCols = self$params$nonConstantVariables,
                                info = self$modelInfo$featureDistributions,
-                               info2 = self$modelInfo$featureDistributions2,
+                               percentiles = self$modelInfo$featureDistributions2,
                                predictFunction = self$newPredictions,
                                scale = 1/2,
                                lowerProbGoal = self$params$lowerProbabilityGoal)})

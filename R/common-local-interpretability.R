@@ -321,7 +321,7 @@ plotVariableEffects = function(baseRow,
 }
 
 
-plotVariableEffects2 = function(baseRow,  
+plotVariableEffects2 = function(baseRow,
                                 modifiableCols,
                                 nonConstantCols,
                                 info,
@@ -338,12 +338,14 @@ plotVariableEffects2 = function(baseRow,
     grid <- c(displayRows, displayCols)
   }
   
+  
+  
   # Compute modifiable factors using univariate method
   univariate <- modifiableFactors1Row2(baseRow = baseRow,
                                        modifiableCols = modifiableCols,
                                        nonConstantCols = nonConstantCols,
                                        info = info,
-                                       info2 = info2,
+                                       percentiles = info2,
                                        scale = 1/2,
                                        predictFunction = predictFunction,
                                        lowerProbGoal = lowerProbGoal)
@@ -541,9 +543,9 @@ singleNumericVariableDf = function(baseRow,
 }
 
 singleNumericVariableDf2 = function(baseRow, 
-                                    variable,
-                                    info,
-                                    nonConstant,
+                                    modifiableVariable,
+                                    standardDeviations,
+                                    nonConstantVariables,
                                     scale = 1/2,
                                     size = 500,
                                     skew = NULL) {
@@ -552,9 +554,9 @@ singleNumericVariableDf2 = function(baseRow,
   for (col in names(baseRow)) {
     baseValue <- baseRow[[col]]
     # modify modifiable and nonConstant
-    if (col  == variable) {
+    if (col  == modifiableVariable) {
       # Set range of values for modifiable
-      sd <- info[[col]]
+      sd <- standardDeviations[[col]]
       lowerScale <- scale*sd
       upperScale <- scale*sd
       if (!is.null(skew)) {
@@ -568,17 +570,20 @@ singleNumericVariableDf2 = function(baseRow,
       df[[col]] <- seq(baseValue - lowerScale, 
                        baseValue + upperScale, 
                        length.out = size)
-    } else if (col %in% nonConstant) {
+    } else if (col %in% nonConstantVariables) {
       # Add noise to nonConstant numeric
       if (is.numeric(baseRow[[col]])) {
-        sd <- info[[col]]
-        df[[col]] <- df[[col]] + rnorm(n = size,
-                                       mean = 0, 
-                                       sd = scale*sd/10)
+        noiseSd <- 0.1*standardDeviations[[col]]*scale
+        df[[col]] <- addNoise(df[[col]], noiseSd)
       }
     }
   }
   return(df)
+}
+
+addNoise = function(column, noiseSd) {
+  rowCount <- length(column)
+  return(column + rnorm(n = rowCount, sd = noiseSd))
 }
 
 #' @title
@@ -620,25 +625,23 @@ singleFactorVariableDf = function(baseRow,
 }
 
 singleFactorVariableDf2 = function(baseRow,
-                                  variable,
-                                  factorLevels,
-                                  info,
-                                  nonConstant, 
-                                  scale = 1/2,
-                                  size = 500) {
+                                   modifiableVariable,
+                                   factorLevels,
+                                   standardDeviations,
+                                   nonConstantVariables, 
+                                   scale = 1/2,
+                                   size = 500) {
   # dummy column to set number of rows for dataframe
   df <- rbind(baseRow[rep(1, times = size), ])
   for (col in names(baseRow)) {
-    if (col %in% nonConstant & is.numeric(baseRow[[col]])) {
-      sd <- info[[col]]
-      df[[col]] <- df[[col]] + rnorm(n = size,
-                                     mean = 0, 
-                                     sd = scale*sd/10)
+    if (col %in% nonConstantVariables & is.numeric(baseRow[[col]])) {
+      noiseSd <- 0.1*standardDeviations[[col]]*scale
+      df[[col]] <- addNoise(df[[col]], noiseSd)
     }
   }
   df <- do.call(rbind, lapply(factorLevels, function(level) {
     levelDf <- df
-    levelDf[[variable]] <- factor(level, levels = factorLevels)
+    levelDf[[modifiableVariable]] <- factor(level, levels = factorLevels)
     return(levelDf)
   }))
   return(df)
@@ -816,7 +819,7 @@ modifiableFactors1Row2 = function(baseRow,
                                   modifiableCols,
                                   nonConstantCols,
                                   info,
-                                  info2, 
+                                  percentiles, 
                                   predictFunction,
                                   scale = 1/2,
                                   lowerProbGoal = TRUE) {
@@ -830,8 +833,8 @@ modifiableFactors1Row2 = function(baseRow,
     # Compute alternate values and probabilities for numeric variables
     if (is.numeric(baseRow[[col]])) {
       
-      global_min <- info2[[col]][1]
-      global_max <- info2[[col]][101]
+      global_min <- percentiles[[col]][1]
+      global_max <- percentiles[[col]][101]
       
       # Build first linear model
       # Build dataframe with variable ranging within quantile range
@@ -850,6 +853,7 @@ modifiableFactors1Row2 = function(baseRow,
       
       # Build second linear model
       
+      shiftAmount <- scale*info[[col]]
       # Case 1: want to shift to the right
       if (wantRightSkew(slope = balancedSlope,
                         currentValue = currentValue,
@@ -857,11 +861,11 @@ modifiableFactors1Row2 = function(baseRow,
                         globalMax = global_max,
                         lowerProbGoal = lowerProbGoal)) {
         # skew interval to the right
-        altValue <- min(baseRow[[col]] + scale*info[[col]], global_max)
-        skew <- "positive"
+        altValue <- min(currentValue + shiftAmount, global_max)
+        skew <- "positive" # for new dataframe
       } else {# Case 2: want to shift to the left
         # skew interval to the left
-        altValue <- max(baseRow[[col]] - scale*info[[col]], global_min)
+        altValue <- max(currentValue - shiftAmount, global_min)
         skew <- "negative"
       }
       skewedDf <- singleNumericVariableDf2(baseRow = baseRow,
