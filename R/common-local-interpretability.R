@@ -317,11 +317,6 @@ singleNumericVariableDf = function(baseRow,
   return(df)
 }
 
-addNoise = function(column, noiseSd) {
-  rowCount <- length(column)
-  return(column + rnorm(n = rowCount, sd = noiseSd))
-}
-
 singleFactorVariableDf = function(baseRow,
                                   modifiableVariable,
                                   factorLevels,
@@ -376,23 +371,30 @@ modifiableFactors1Row = function(baseRow,
       globalMinimum <- maxima[[col]]
       globalMaximum <- minima[[col]]
       
-      # Build first linear model
-      # Build dataframe with variable ranging within quantile range
-      balancedDf <- singleNumericVariableDf(baseRow = baseRow,
-                                            modifiableVariable = modifiableVariables, 
-                                            standardDeviations = standardDeviations, 
-                                            nonConstantVariables = nonConstantVariables, 
-                                            skew = NULL,
-                                            #size = 200, 
-                                            scale = scale)
-      # Make predictions and train a linear model on these
-      balancedPredictions <- predictFunction(newData = balancedDf)
-      balancedLM <- lm(balancedPredictions$predictions ~ balancedDf[[col]])
+      # Build a dataframe using points evenly spread around the current value
+      # of col
+      balancedDf <- singleNumericVariableDf(
+        baseRow = baseRow,
+        modifiableVariable = modifiableVariables, 
+        standardDeviations = standardDeviations, 
+        nonConstantVariables = nonConstantVariables,
+        skew = NULL,
+        #size = 200, 
+        scale = scale)
+      # Build a linear model using the balanced dataframe
+      balancedLM <- buildUnivariateModel(df = balancedDf, 
+                                       variable = col, 
+                                       predictFunction = predictFunction)
       # Extract linear model coefficients
       balancedSlope <- balancedLM$coefficients[2]
       
-      # Build second linear model
-      
+      # Use the slope, the maximum and minimum values, and whether or not 
+      # lower probabilies are more desirable to determine whether the 
+      # recommendation should be to the right or to the left of the current 
+      # value.
+      # This information will be used to build a new dataframe on which to 
+      # refit a linear model, placing more weight on points near the
+      # recommendation.
       shiftAmount <- scale*standardDeviations[[col]]
       # Case 1: want to shift to the right
       if (wantRightSkew(slope = balancedSlope,
@@ -402,22 +404,27 @@ modifiableFactors1Row = function(baseRow,
                         lowerProbGoal = lowerProbGoal)) {
         # skew interval to the right
         altValue <- min(currentValue + shiftAmount, globalMaximum)
-        skew <- "positive" # for new dataframe
+        skew <- "positive" 
       } else {# Case 2: want to shift to the left
         # skew interval to the left
         altValue <- max(currentValue - shiftAmount, globalMinimum)
         skew <- "negative"
       }
-      skewedDf <- singleNumericVariableDf(baseRow = baseRow,
-                                          modifiableVariable = col,
-                                          standardDeviations = standardDeviations, 
-                                          nonConstantVariables = nonConstantVariables,
-                                          skew = skew,
-                                          #size = 200, 
-                                          scale = scale)
-      skewedPredictions <- predictFunction(newData = skewedDf)
-      skewedLM <- lm(skewedPredictions$predictions ~ skewedDf[[col]])
-      
+
+      # build a dataframe of points near the current value but weighted 
+      # toward the recommended value
+      skewedDf <- singleNumericVariableDf(
+        baseRow = baseRow,
+        modifiableVariable = col,
+        standardDeviations = standardDeviations,
+        nonConstantVariables = nonConstantVariables,
+        skew = skew,
+        #size = 200,
+        scale = scale)
+      # Build a linear model using the skewed dataframe
+      skewedLM <- buildUnivariateModel(df = skewedDf, 
+                                       variable = col, 
+                                       predictFunction = predictFunction)
       # Extract model coefficients
       skewedSlope <- skewedLM$coefficients[2]
       skewedIntercept <- skewedLM$coefficients[1]
@@ -475,11 +482,13 @@ buildTopModifiableFactorsDf = function(modFactorsList,
                                        numTopFactors = 3) {
   # Drop slope and intercept columns
   columnsToKeep <- c("variable", "currentValue", "altValue", "altProb", "delta")
-  modFactorList <- keepColumns(modFactorsList, columnsToKeep)
+  modFactorList <- keepColumns(dfList = modFactorsList, 
+                               columnsToKeep = columnsToKeep)
   
   # Drop repeated rows, if desired
   if (!repeatedFactors) {
-    modFactorList <- dropRepeated(modFactorsList)
+    modFactorList <- dropRepeated(dfList = modFactorsList, 
+                                  columnName = "variable")
   }
   
   # Aetermine the maximum number of modifiable factors
@@ -503,19 +512,30 @@ buildTopModifiableFactorsDf = function(modFactorsList,
 
 #### HELPER FUNCTIONS ####
 
+addNoise <- function(column, noiseSd) {
+  rowCount <- length(column)
+  return(column + rnorm(n = rowCount, sd = noiseSd))
+}
+
+buildUnivariateModel <- function(df, variable, predictFunction) {
+  predictions <- predictFunction(newData = df)
+  model <- lm(predictions$predictions ~ df[[variable]])
+  return(model)
+}
+
+dropRepeated <- function(dfList, columnName) {
+  shortDfList <- lapply(dfList, function(rowDf) {
+    rowDf <- rowDf[!duplicated(rowDf[, c(columnName)]), ]
+    return(rowDf)
+  })
+  return(shortDfList)
+}
+
 keepColumns <- function(dfList, columnsToKeep) {
   thinDfList <- lapply(dfList, function(rowDf) {
     return(rowDf[, columnsToKeep])
   })
   return(thinDfList)
-}
-
-dropRepeated <- function(dfList) {
-  shortDfList <- lapply(dfList, function(rowDf) {
-    rowDf <- rowDf[!duplicated(rowDf[, 1]), ]
-    return(rowDf)
-  })
-  return(shortDfList)
 }
 
 wantRightSkew <- function(slope,
