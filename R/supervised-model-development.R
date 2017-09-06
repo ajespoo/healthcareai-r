@@ -439,17 +439,20 @@ SupervisedModelDevelopment <- R6Class("SupervisedModelDevelopment",
         print(str(private$factorLevels))
       }
       
-      # Save standard deviations and factor levels
-      self$modelInfo$featureDistributions <- list()
+      # Save standard deviations along with min and max values for numeric
+      # variables
+      self$modelInfo$standardDeviations <- list()
+      self$modelInfo$maxima <- list()
+      self$modelInfo$minima <- list()
       for (col in names(self$params$df)) {
-        if (!col %in% c(self$params$predictedCol, self$params$grainCol)) {
-          if (is.numeric(self$params$df[[col]])) {
-            self$modelInfo$featureDistributions[[col]] <-
-              sd(self$params$df[[col]])
-          } else {
-            self$modelInfo$featureDistributions[[col]] <-
-              self$modelInfo$factorLevels[[col]]
-          }
+        if ((is.numeric(self$params$df[[col]])) 
+            & (!col %in% c(self$params$predictedCol, self$params$grainCol))) {
+          # save standard deviation
+          self$modelInfo$standardDeviations[[col]] <- sd(self$params$df[[col]])
+          # save maximum value
+          self$modelInfo$maxima[[col]] <- max(self$params$df[[col]])
+          # save minimum value
+          self$modelInfo$minima[[col]] <- min(self$params$df[[col]])
         }
       }
       
@@ -460,20 +463,6 @@ SupervisedModelDevelopment <- R6Class("SupervisedModelDevelopment",
       }
       if (ncol(numericColumns) > 0) {
         self$modelInfo$covarianceMatrix <- cov(numericColumns)
-      }
-      
-      # Save percentiles and factor level distributions
-      self$modelInfo$featureDistributions2 <- list()
-      for (col in names(self$params$df)) {
-        if (!col %in% c(self$params$predictedCol, self$params$grainCol)) {
-          if (is.numeric(self$params$df[[col]])) {
-            self$modelInfo$featureDistributions2[[col]] <-
-              quantile(self$params$df[[col]], seq(0, 1, 0.01))
-          } else {
-            self$modelInfo$featureDistributions2[[col]] <-
-              table(self$params$df[[col]])/length(self$params$df[[col]])
-          }
-        }
       }
     }, 
     
