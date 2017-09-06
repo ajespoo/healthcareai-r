@@ -310,7 +310,7 @@ singleNumericVariableDf = function(baseRow,
     } else if (col %in% nonConstantVariables) {
       if (is.numeric(baseRow[[col]])) {
         noiseSd <- 0.1*standardDeviations[[col]]*scale
-        df[[col]] <- addNoise(df[[col]], noiseSd)
+        df[[col]] <- addNoise(column = df[[col]], noiseSd = noiseSd)
       }
     }
   }
@@ -329,16 +329,24 @@ singleFactorVariableDf = function(baseRow,
                                   nonConstantVariables, 
                                   scale = 1/2,
                                   size = 500) {
-  # dummy column to set number of rows for dataframe
+  # Build dataframe out of copies of the base row
   df <- rbind(baseRow[rep(1, times = size), ])
-  for (col in names(baseRow)) {
-    if (col %in% nonConstantVariables & is.numeric(baseRow[[col]])) {
+  
+  # Add noise to the nonConstant numeric variables
+  for (col in nonConstantVariables) {
+    if (is.numeric(baseRow[[col]])) {
       noiseSd <- 0.1*standardDeviations[[col]]*scale
-      df[[col]] <- addNoise(df[[col]], noiseSd)
+      df[[col]] <- addNoise(column = df[[col]], noiseSd = noiseSd)
     }
   }
+  
+  # For each factor level of the modifiable variable, make a copy of the 
+  # dataframe populating the modifiable variable column with this level and 
+  # recombine all of these dataframes into one large dataframe
   df <- do.call(rbind, lapply(factorLevels, function(level) {
+    # Copy dataframe
     levelDf <- df
+    # Replace modifiable variable with the given factor level
     levelDf[[modifiableVariable]] <- factor(level, levels = factorLevels)
     return(levelDf)
   }))
