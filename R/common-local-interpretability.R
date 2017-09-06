@@ -358,9 +358,13 @@ modifiableFactors1Row = function(baseRow,
                                  predictFunction,
                                  scale = 1/2,
                                  lowerProbGoal = TRUE) {
+  # Get the predicted probability for the base row
   currentProbModel <- predictFunction(baseRow)$predictions
   
+  # List of 1-row dataframes corresponding to an individual modifiable 
+  # variables. This list will be combined into a single dataframe later.
   featureList <- list()
+  
   for (col in modifiableVariables) {
     # Save current value of the variable
     currentValue <- baseRow[[col]]
@@ -428,11 +432,13 @@ modifiableFactors1Row = function(baseRow,
       # Extract model coefficients
       skewedSlope <- skewedLM$coefficients[2]
       skewedIntercept <- skewedLM$coefficients[1]
-      
+      # Compute predicted probability change
       currentProb <- skewedSlope*currentValue + skewedIntercept
       altProb <- skewedSlope*altValue + skewedIntercept
       delta <- altProb - currentProb
       
+      # Build a 1-row dataframe containing recommendation information for the
+      # modifiable variable
       summaryDf <- data.frame(variable = col, 
                               currentValue = currentValue,
                               altValue = signif(altValue, 4),
@@ -440,11 +446,16 @@ modifiableFactors1Row = function(baseRow,
                               delta = signif(delta, 4),
                               intercept = skewedIntercept,
                               slope = skewedSlope)
+      
+      # Add 1-row dataframe to list of dataframes
       featureList[[col]] <- summaryDf
       
-      # Compute alternate values and probabilities for categorical variables
+    # Compute alternate values and probabilities for categorical variables
     } else {
       levels <- factorLevels[[col]]
+      
+      # Build a dataframe of rows near the baseRow, but with all factor levels
+      # present in the modifiable variable column
       perturbedDf <- singleFactorVariableDf(baseRow = baseRow, 
                                             modifiableVariable = col, 
                                             factorLevels = levels,
@@ -452,11 +463,21 @@ modifiableFactors1Row = function(baseRow,
                                             nonConstantVariables = nonConstantVariables,
                                             scale = scale)
       
+      # Get the predictions from the original model on the data
       predictions <- predictFunction(newData = perturbedDf)$predictions
+      
+      # Average the predictions with the right level to get a baseline
       currentProb <- mean(predictions[perturbedDf[[col]] == baseRow[[col]]])
+      
+      # For each level, compute the predicted probability change and build a 
+      # 1 -row dataframe summarizing the results.
       for (level in levels) {
+        # Compute the predicted probability change
         altProb <- mean(predictions[perturbedDf[[col]] == level])
         delta <- altProb - currentProb
+        
+        # Build a 1-row dataframe containing recommendation information for the
+        # modifiable variable
         summaryDf <- data.frame(variable = col, 
                                 currentValue = as.character(currentValue),
                                 altValue = as.character(level),
@@ -465,15 +486,19 @@ modifiableFactors1Row = function(baseRow,
                                 intercept = NA,
                                 slope = NA,
                                 stringsAsFactors = FALSE)
+        
+        # Add 1-row dataframe to list of dataframes
         featureList[[paste0(col, '.', level)]] <- summaryDf
       }
     }
   }
   
-  # Arrange the featureList into a dataframe
-  tempDf <- do.call(rbind, featureList)
+  # Arrange the featureList of 1-row dataframes into a single dataframe
+  modifiableFactorDf <- do.call(rbind, featureList)
   # Order by delta
-  return(tempDf[order(tempDf$delta, decreasing = !lowerProbGoal), ])
+  modifiableFactorDf <- modifiableFactorDf[order(modifiableFactorDf$delta, decreasing = !lowerProbGoal), ]
+  
+  return(modifiableFactorDf)
 }
 
 
