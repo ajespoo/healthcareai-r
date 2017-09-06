@@ -277,29 +277,37 @@ singleNumericVariableDf = function(baseRow,
                                    scale = 1/2,
                                    size = 500,
                                    skew = NULL) {
-  # dummy column to set number of rows for dataframe
+  # Build dataframe out of copies of the base row
   df <- rbind(baseRow[rep(1, times = size), ])
+  
+  # Alter the modifiable variable and non-constant variable columns
   for (col in names(baseRow)) {
     baseValue <- baseRow[[col]]
-    # modify modifiable and nonConstant
+    
+    # Set modifiable variable values
     if (col  == modifiableVariable) {
-      # Set range of values for modifiable
+      # Get endpoints of the interval from which the modifiable variable will 
+      # be sampled 
       sd <- standardDeviations[[col]]
-      lowerScale <- scale*sd
-      upperScale <- scale*sd
+      lowerEndPoint <- scale*sd
+      upperEndPoint <- scale*sd
+      
+      # Truncate one side of interval, if desired
       if (!is.null(skew)) {
         if (skew == "positive") {
-          lowerScale <- lowerScale*1/4
+          lowerEndPoint <- lowerEndPoint*1/4
         } else if (skew == "negative") {
-          upperScale <- upperScale*1/4
+          upperEndPoint <- upperEndPoint*1/4
         }
       }
       
-      df[[col]] <- seq(baseValue - lowerScale, 
-                       baseValue + upperScale, 
+      # Set modifiable column values to be regularly spaced along the interval
+      df[[col]] <- seq(from = baseValue - lowerEndPoint, 
+                       to = baseValue + upperEndPoint, 
                        length.out = size)
+    
+    # Add noise to the nonConstant numeric variables  
     } else if (col %in% nonConstantVariables) {
-      # Add noise to nonConstant numeric
       if (is.numeric(baseRow[[col]])) {
         noiseSd <- 0.1*standardDeviations[[col]]*scale
         df[[col]] <- addNoise(df[[col]], noiseSd)
