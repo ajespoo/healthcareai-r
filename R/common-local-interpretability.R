@@ -354,32 +354,34 @@ singleFactorVariableDf = function(baseRow,
 }
 
 modifiableFactors1Row = function(baseRow, 
-                                 modifiableCols,
-                                 nonConstantCols,
-                                 info,
-                                 percentiles, 
+                                 modifiableVariables,
+                                 nonConstantVariables,
+                                 standardDeviations,
+                                 maxima,
+                                 minima,
+                                 factorLevels,
                                  predictFunction,
                                  scale = 1/2,
                                  lowerProbGoal = TRUE) {
   currentProbModel <- predictFunction(baseRow)$predictions
   
   featureList <- list()
-  for (col in modifiableCols) {
+  for (col in modifiableVariables) {
     # Save current value of the variable
     currentValue <- baseRow[[col]]
     
     # Compute alternate values and probabilities for numeric variables
     if (is.numeric(baseRow[[col]])) {
       
-      global_min <- percentiles[[col]][1]
-      global_max <- percentiles[[col]][101]
+      globalMinimum <- maxima[[col]]
+      globalMaximum <- minima[[col]]
       
       # Build first linear model
       # Build dataframe with variable ranging within quantile range
       balancedDf <- singleNumericVariableDf(baseRow = baseRow,
-                                            variable = col, 
-                                            info = info, 
-                                            nonConstant = nonConstantCols, 
+                                            modifiableVariable = modifiableVariables, 
+                                            standardDeviations = standardDeviations, 
+                                            nonConstantVariables = nonConstantVariables, 
                                             skew = NULL,
                                             #size = 200, 
                                             scale = scale)
@@ -391,25 +393,25 @@ modifiableFactors1Row = function(baseRow,
       
       # Build second linear model
       
-      shiftAmount <- scale*info[[col]]
+      shiftAmount <- scale*standardDeviations[[col]]
       # Case 1: want to shift to the right
       if (wantRightSkew(slope = balancedSlope,
                         currentValue = currentValue,
-                        globalMin = global_min, 
-                        globalMax = global_max,
+                        globalMin = globalMinimum, 
+                        globalMax = globalMaximum,
                         lowerProbGoal = lowerProbGoal)) {
         # skew interval to the right
-        altValue <- min(currentValue + shiftAmount, global_max)
+        altValue <- min(currentValue + shiftAmount, globalMaximum)
         skew <- "positive" # for new dataframe
       } else {# Case 2: want to shift to the left
         # skew interval to the left
-        altValue <- max(currentValue - shiftAmount, global_min)
+        altValue <- max(currentValue - shiftAmount, globalMinimum)
         skew <- "negative"
       }
       skewedDf <- singleNumericVariableDf(baseRow = baseRow,
-                                          variable = col,
-                                          info = info, 
-                                          nonConstant = nonConstantCols,
+                                          modifiableVariable = col,
+                                          standardDeviations = standardDeviations, 
+                                          nonConstantVariables = nonConstantVariables,
                                           skew = skew,
                                           #size = 200, 
                                           scale = scale)
@@ -435,12 +437,14 @@ modifiableFactors1Row = function(baseRow,
       
       # Compute alternate values and probabilities for categorical variables
     } else {
-      levels <- info[[col]]
-      perturbedDf <- singleFactorVariableDf2(baseRow = baseRow, 
-                                             variable = col, 
-                                             factorLevels = levels,
-                                             info = info, 
-                                             nonConstant = nonConstantCols)
+      levels <- factorLevels[[col]]
+      perturbedDf <- singleFactorVariableDf(baseRow = baseRow, 
+                                            modifiableVariable = col, 
+                                            factorLevels = levels,
+                                            standardDeviations = standardDeviations,
+                                            nonConstantVariables = nonConstantVariables,
+                                            scale = scale)
+      
       predictions <- predictFunction(newData = perturbedDf)$predictions
       currentProb <- mean(predictions[perturbedDf[[col]] == baseRow[[col]]])
       for (level in levels) {
@@ -469,17 +473,13 @@ modifiableFactors1Row = function(baseRow,
 buildTopModifiableFactorsDf = function(modFactorsList,
                                        repeatedFactors = FALSE,
                                        numTopFactors = 3) {
-   # Drop slope and intercept columns and drop repeated top variables if 
-  # appropriate
+  # Drop slope and intercept columns
+  columnsToKeep <- c("variable", "currentValue", "altValue", "altProb", "delta")
+  modFactorList <- keepColumns(modFactorsList, columnsToKeep)
+  
+  # Drop repeated rows, if desired
   if (!repeatedFactors) {
-    modFactorList <- lapply(modFactorsList, function(rowDf) {
-      rowDf <- rowDf[!duplicated(rowDf[, 1]), ]
-      return(rowDf[, 1:5])
-    })
-  } else {
-    modFactorList <- lapply(modFactorsList, function(rowDf) {
-      return(rowDf[, 1:5])
-    })
+    modFactorList <- dropRepeated(modFactorsList)
   }
   
   # Aetermine the maximum number of modifiable factors
@@ -499,6 +499,23 @@ buildTopModifiableFactorsDf = function(modFactorsList,
   row.names(modFactorsDf) <- NULL
   
   return(modFactorsDf)
+}
+
+#### HELPER FUNCTIONS ####
+
+keepColumns <- function(dfList, columnsToKeep) {
+  thinDfList <- lapply(dfList, function(rowDf) {
+    return(rowDf[, columnsToKeep])
+  })
+  return(thinDfList)
+}
+
+dropRepeated <- function(dfList) {
+  shortDfList <- lapply(dfList, function(rowDf) {
+    rowDf <- rowDf[!duplicated(rowDf[, 1]), ]
+    return(rowDf)
+  })
+  return(shortDfList)
 }
 
 wantRightSkew <- function(slope,
