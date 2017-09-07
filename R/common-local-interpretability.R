@@ -1,274 +1,4 @@
-#' @title
-#' Plot the output of a model as each coefficient changes individually
-#'
-#' @importFrom graphics abline
-#' @importFrom graphics lines
-#' @importFrom graphics mtext
-#' @importFrom graphics points
-#' 
-#' @description Plot the output of a model as each coefficient changes 
-#' individually
-#' @usage plotVariableEffects(baseRow, 
-#'                     modifiableCols, 
-#'                     info,
-#'                     info2,
-#'                     predictFunction,
-#'                     type,
-#'                     spread = 2,
-#'                     numberOfPercentiles = 12,
-#'                     modifiableDfRow = NULL,
-#'                     grid = NULL)
-#' @param baseRow a row in a data frame, used as the reference from which to 
-#' vary the variables
-#' @param modifiableCols a vector of column names corresponding to the columns
-#' which should be perturbed
-#' @param info a list which indexed by the column names in modifiableCols 
-#' containing the standard deviation (for numeric columns) or the factor levels
-#' (for factor columns)
-#' @param info2 list of percentiles TODO: expand
-#' @param predictFunction a function with which to make new predictions for 
-#' the model
-#' @param type the type of fitObj: "classification" or "regression"
-#' @param spread a number representing how widely to vary the variables
-#' @param numberOfPercentiles the number of percentiles to use TODO:expand
-#' @param modifiableDfRow the row in ModifiableFactorsDf corresponding to 
-#' baseRow
-#' @param grid An ordered pair of integers (rows, columns) which determines the 
-#' number of plots to display at once. The first entry determines the number of
-#' rows and the second determines the number of columns.
-#'
-#' @export
-#' @references \url{http://healthcareai-r.readthedocs.io}
-#' @seealso \code{\link{healthcareai}}
-plotVariableEffects = function(baseRow, 
-                               modifiableCols,
-                               info,
-                               info2,
-                               predictFunction,
-                               type,
-                               spread = 2, 
-                               numberOfPercentiles = 12,
-                               modifiableDfRow = NULL,
-                               grid = NULL) {
-  # By default, display at most 8 graphs
-  if (is.null(grid)) {
-    numberOfPlots <- length(modifiableCols)
-    displayRows <- min(2, ceiling(numberOfPlots/4))
-    displayCols <- min(4, numberOfPlots)
-    grid <- c(displayRows, displayCols)
-  }
-  
-  # Compute modifiable factors using univariate method
-  univariate <- modifiableFactors1Row(baseRow = baseRow, 
-                                      modifiableCols = modifiableCols,
-                                      info2 = info2, 
-                                      predictFunction = predictFunction,
-                                      lowerProbGoal = TRUE, 
-                                      numberOfPercentiles = numberOfPercentiles)
-  
-  oldGraphicalParams1 <- par()$mfrow
-  oldGraphicalParams2 <- par()$oma
-  tryCatch({
-    par(mfrow = grid, oma = c(2,2,2,2))
-    
-    for (col in modifiableCols) {
-      # Build dataframe with variation in a single column
-      if (is.numeric(baseRow[[col]])) {
-        # Add column with variation to df
-        sd <- info[[col]]
-        singleVarDf <- data.frame(seq(from = info2[[col]][1],
-                                      to = info2[[col]][101],
-                                      length.out = 1000))  
-      } else {
-        singleVarDf <- data.frame(factor(info[[col]], levels = info[[col]]))
-      }
-      names(singleVarDf) <- c(col)
-      
-      # Add the other columns
-      for (col2 in names(baseRow)) {
-        if (col2 != col) singleVarDf[[col2]] <- baseRow[[col2]]
-      }
-      
-      labels <- predictFunction(singleVarDf)
-      rowPred <- predictFunction(baseRow)
-      if (!is.null(modifiableDfRow)) {
-        LMrowPred <- modifiableDfRow$LMPrediction
-      }
-      
-      # Set axes labels, limits
-      if (type == "classification") {
-        yAxisLabel <- "Probability"
-        yAxisLimits <- c(0,1)
-      } else {
-        yAxisLabel <- "Response"
-        if (!is.null(modifiableDfRow)) {
-          diff <- as.numeric(abs(rowPred - LMrowPred))
-          topWT <- 1.2*max(abs(modifiableDfRow[grepl("Modify[0123456789]+WT", 
-                                           names(modifiableDfRow))]))
-          yAxisLimits <- c(as.numeric(rowPred) - topWT - diff, 
-                           as.numeric(rowPred) + topWT + diff)
-        } else {
-          yAxisLimits <- 1.2*c(min(as.numeric(labels), max(as.numeric(labels))))
-        }
-      }
-      
-      # Plot model values
-      lineWidth <- ifelse(is.numeric(baseRow[[col]]), 2, 1)
-      
-      plot(singleVarDf[[col]], labels$predictions, type = "l",
-           ylim = yAxisLimits, xlab = col, ylab = yAxisLabel, lwd = lineWidth)
-      
-      abline(h = rowPred, lty = "dashed")
-      points(baseRow[[col]], rowPred, pch = 16, cex = 1.5)
-      
-      # Plot univariate approximation
-      if (is.numeric(baseRow[[col]])) {
-        uniRow <- univariate[univariate$variable == col, ]
-        currentValue <- as.numeric(uniRow$currentValue)
-        altValue <- as.numeric(uniRow$altValue)
-        xCoords <- c(1.25*currentValue - 0.25*altValue, altValue)
-        yCoords <- uniRow$slope*xCoords + uniRow$intercept
-        lines(xCoords, yCoords, col = "blue", lwd = lineWidth)
-        
-        points(currentValue, uniRow$slope*currentValue + uniRow$intercept, 
-               pch = 8, col = "blue")
-      }
-
-      # Plot multivariate approximation
-      if (!is.null(modifiableDfRow)) {
-        points(baseRow[[col]],attr(modifiableDfRow, "currentProbLM"), 
-               pch = 8, col = "red")
-               
-        if (is.numeric(baseRow[[col]])) {
-          xCoords <- as.numeric(modifiableDfRow$altValue[modifiableDfRow$variable == col])
-          yCoords <- as.numeric(modifiableDfRow$altProbLM[modifiableDfRow$variable == col])
-
-          lines(xCoords, yCoords, col = "red", lwd = lineWidth)
-        } else {
-          for (level in info[[col]]) {
-            if (level != baseRow[[col]]) {
-              xCoord <- factor(level, levels = info[[col]])
-              yCoord <- as.numeric(modifiableDfRow$altProbLM[(modifiableDfRow$variable == col) 
-                                                             & (modifiableDfRow$altValue == level)])
-              points(xCoord, y = yCoord, pch = 1, col = "red")
-            }
-          }
-        }
-      mtext(paste("Grain Column ID:", attr(modifiableDfRow, "grainID")), 
-            outer = TRUE, cex = 1)
-      }
-    }
-  }, error = function(e) {
-    message(e)
-  }, finally =  {
-    # Reset the graphics parameters even if an error was raised
-    par(mfrow = oldGraphicalParams1, oma = oldGraphicalParams2)
-  })
-}
-
-
-plotVariableEffects2 = function(baseRow,
-                                modifiableCols,
-                                nonConstantCols,
-                                info,
-                                info2,
-                                predictFunction,
-                                spread = 2, 
-                                grid = NULL, 
-                                lowerProbGoal = TRUE) {
-  # By default, display at most 8 graphs
-  if (is.null(grid)) {
-    numberOfPlots <- length(modifiableCols)
-    displayRows <- min(2, ceiling(numberOfPlots/4))
-    displayCols <- min(4, numberOfPlots)
-    grid <- c(displayRows, displayCols)
-  }
-  
-  
-  
-  # Compute modifiable factors using univariate method
-  univariate <- modifiableFactors1Row2(baseRow = baseRow,
-                                       modifiableCols = modifiableCols,
-                                       nonConstantCols = nonConstantCols,
-                                       info = info,
-                                       percentiles = info2,
-                                       scale = 1/2,
-                                       predictFunction = predictFunction,
-                                       lowerProbGoal = lowerProbGoal)
-  
-  oldGraphicalParams1 <- par()$mfrow
-  oldGraphicalParams2 <- par()$oma
-  tryCatch({
-    par(mfrow = grid, oma = c(2,2,2,2))
-    
-    for (col in modifiableCols) {
-      # Build dataframe with variation in a single column
-      if (is.numeric(baseRow[[col]])) {
-        # Add column with variation to df
-        sd <- info[[col]]
-        singleVarDf <- data.frame(seq(from = info2[[col]][1],
-                                      to = info2[[col]][101],
-                                      length.out = 1000))  
-      } else {
-        singleVarDf <- data.frame(factor(info[[col]], levels = info[[col]]))
-      }
-      names(singleVarDf) <- c(col)
-      
-      # Add the other columns
-      for (col2 in names(baseRow)) {
-        if (col2 != col) singleVarDf[[col2]] <- baseRow[[col2]]
-      }
-      
-      labels <- predictFunction(singleVarDf)
-      rowPred <- predictFunction(baseRow)
-      
-      # Set axes labels, limits
-      yAxisLabel <- "Probability"
-      yAxisLimits <- c(0,1)
-      
-      # Plot model values
-      lineWidth <- ifelse(is.numeric(baseRow[[col]]), 1.75, 1)
-      
-      plot(singleVarDf[[col]], labels$predictions, type = "l",
-           ylim = yAxisLimits, xlab = col, ylab = yAxisLabel, lwd = lineWidth)
-      
-      abline(h = rowPred, lty = "dashed")
-      points(baseRow[[col]], rowPred, pch = 16, cex = 1.5)
-      
-      # Plot univariate approximation
-      if (is.numeric(baseRow[[col]])) {
-        uniRow <- univariate[univariate$variable == col, ]
-        currentValue <- as.numeric(uniRow$currentValue)
-        altValue <- as.numeric(uniRow$altValue)
-        xCoords <- c(1.25*currentValue - 0.25*altValue, altValue)
-        yCoords <- uniRow$slope*xCoords + uniRow$intercept
-        lines(xCoords, yCoords, col = "red", lwd = lineWidth)
-        
-        points(currentValue, uniRow$slope*currentValue + uniRow$intercept, 
-               pch = 8, col = "red")
-      } else {
-        factorDf <- univariate[univariate$variable == col, ]
-        for (level in info[[col]]) {
-          uniRow <- factorDf[factorDf$altValue == level, ]
-          if (level == uniRow$currentValue) {
-            plotch <- 8
-          } else {
-            plotch <- 16
-          }
-          points(x = factor(uniRow$altValue, levels = info[[col]]), 
-                 y = uniRow$altProb, 
-                 pch = plotch, col = "red")
-        }
-      }
-    }
-  }, error = function(e) {
-    message(e)
-  }, finally =  {
-    # Reset the graphics parameters even if an error was raised
-    par(mfrow = oldGraphicalParams1, oma = oldGraphicalParams2)
-  })
-}
-
+##### BUILD DATAFRAME ####
 
 singleNumericVariableDf = function(baseRow, 
                                    modifiableVariable,
@@ -584,4 +314,116 @@ wantRightSkew <- function(slope,
     shiftRight <- FALSE
   }
   return(shiftRight)
+}
+
+#### PLOTTING ####
+
+plotVariableEffects = function(baseRow,
+                               modifiableVariables,
+                               nonConstantVariables,
+                               standardDeviations,
+                               maxima,
+                               minima,
+                               factorLevels,
+                               predictFunction,
+                               oneRowDf = NULL,
+                               scale = 1/2, 
+                               lowerProbGoal = TRUE,
+                               grid = NULL) {
+  # By default, display at most 8 graphs
+  
+  
+  if (is.null(grid)) {
+    numberOfPlots <- length(modifiableVariables)
+    displayRows <- min(2, ceiling(numberOfPlots/4))
+    displayCols <- min(4, numberOfPlots)
+    grid <- c(displayRows, displayCols)
+  }
+  
+  
+  
+  # Compute modifiable factors using univariate method
+  univariate <- modifiableFactors1Row(baseRow = baseRow,
+                                      modifiableVariables = modifiableVariables,
+                                      nonConstantVariables = nonConstantVariables,
+                                      standardDeviations = standardDeviations,
+                                      maxima = maxima,
+                                      minima = minima,
+                                      factorLevels = factorLevels,
+                                      scale = 1/2,
+                                      predictFunction = predictFunction,
+                                      lowerProbGoal = lowerProbGoal)
+  
+  oldGraphicalParams1 <- par()$mfrow
+  oldGraphicalParams2 <- par()$oma
+  tryCatch({
+    par(mfrow = grid, oma = c(2,2,2,2))
+    
+    for (col in modifiableVariables) {
+      # Build dataframe with variation in a single column
+      if (is.numeric(baseRow[[col]])) {
+        # Add column with variation to df
+        sd <- standardDeviations[[col]]
+        singleVarDf <- data.frame(seq(from = minima[[col]],
+                                      to = maxima[[col]],
+                                      length.out = 1000))  
+      } else {
+        singleVarDf <- data.frame(factor(factorLevels[[col]], 
+                                         levels = factorLevels[[col]]))
+      }
+      names(singleVarDf) <- c(col)
+      
+      # Add the other columns
+      for (col2 in names(baseRow)) {
+        if (col2 != col) singleVarDf[[col2]] <- baseRow[[col2]]
+      }
+      
+      labels <- predictFunction(singleVarDf)
+      rowPred <- predictFunction(baseRow)
+      
+      # Set axes labels, limits
+      yAxisLabel <- "Probability"
+      yAxisLimits <- c(0,1)
+      
+      # Plot model values
+      lineWidth <- ifelse(is.numeric(baseRow[[col]]), 1.75, 1)
+      
+      plot(singleVarDf[[col]], labels$predictions, type = "l",
+           ylim = yAxisLimits, xlab = col, ylab = yAxisLabel, lwd = lineWidth)
+      
+      abline(h = rowPred, lty = "dashed")
+      points(baseRow[[col]], rowPred, pch = 16, cex = 1.5)
+      
+      # Plot univariate approximation
+      if (is.numeric(baseRow[[col]])) {
+        uniRow <- univariate[univariate$variable == col, ]
+        currentValue <- as.numeric(uniRow$currentValue)
+        altValue <- as.numeric(uniRow$altValue)
+        xCoords <- c(1.25*currentValue - 0.25*altValue, altValue)
+        yCoords <- uniRow$slope*xCoords + uniRow$intercept
+        lines(xCoords, yCoords, col = "red", lwd = lineWidth)
+        
+        points(currentValue, uniRow$slope*currentValue + uniRow$intercept, 
+               pch = 8, col = "red")
+      } else {
+        factorDf <- univariate[univariate$variable == col, ]
+        for (level in factorLevels[[col]]) {
+          uniRow <- factorDf[factorDf$altValue == level, ]
+          if (level == uniRow$currentValue) {
+            plotch <- 8
+          } else {
+            plotch <- 16
+          }
+          points(x = factor(uniRow$altValue, levels = factorLevels[[col]]), 
+                 y = uniRow$altProb, 
+                 pch = plotch, col = "red")
+        }
+      }
+    }
+  }, error = function(e) {
+    message(e)
+  }, finally =  {
+    # Reset the graphics parameters even if an error was raised
+    par(mfrow = oldGraphicalParams1, oma = oldGraphicalParams2)
+  })
 }
