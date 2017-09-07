@@ -561,22 +561,20 @@ RandomForestDeployment <- R6Class("RandomForestDeployment",
 
       # create dataframe for output
       super$createDf()
-      
-      # Create modifiable factors df
-      #super$createModifiableFactorsDf(1:length(private$grainTest))
-      super$createModifiableFactorsDf(NULL)
-      
+    
       t0 <- proc.time()
       print("Computing modifiable factors...")
       self$modifiableFactorsList <- lapply(1:nrow(self$params$df), function(i) {
-        modifiableFactors1Row2(baseRow = self$params$df[i, ], 
-                               modifiableCols = self$params$modifiableVariables,
-                               nonConstantCols = self$params$nonConstantVariables,
-                               info = self$modelInfo$featureDistributions,
-                               percentiles = self$modelInfo$featureDistributions2,
-                               predictFunction = self$newPredictions,
-                               scale = 1/2,
-                               lowerProbGoal = self$params$lowerProbabilityGoal)})
+        modifiableFactors1Row(baseRow = self$params$df[i, ], 
+                              modifiableVariables = self$params$modifiableVariables,
+                              nonConstantVariables = self$params$nonConstantVariables,
+                              standardDeviations = self$modelInfo$standardDeviations,
+                              maxima = self$modelInfo$maxima,
+                              minima = self$modelInfo$minima,
+                              factorLevels = self$modelInfo$factorLevels,
+                              predictFunction = self$newPredictions,
+                              scale = 1/2,
+                              lowerProbGoal = self$params$lowerProbabilityGoal)})
       tf <- proc.time() - t0
       print(paste0("Modifiable factors computed in ",
                    signif(tf[3],4), " seconds."))
@@ -603,11 +601,11 @@ RandomForestDeployment <- R6Class("RandomForestDeployment",
       return(data.frame(predictions))
     },
     
-    getModifiableFactorsDf3 = function(repeatedFactors = FALSE, 
-                                       numTopFactors = 3) {
-      modFactorDf <- buildTopModifiableFactorsDf2(self$modifiableFactorsList,
-                                                  repeatedFactors, 
-                                                  numTopFactors)
+    getModifiableFactorsDf = function(repeatedFactors = FALSE,
+                                      numTopFactors = 3) {
+      modFactorDf <- buildTopModifiableFactorsDf(self$modifiableFactorsList,
+                                                 repeatedFactors, 
+                                                 numTopFactors)
       return(cbind(private$outDf[, c(self$params$grainCol, "PredictedProbNBR")], 
                    modFactorDf))
     }

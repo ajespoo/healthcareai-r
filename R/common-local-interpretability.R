@@ -283,9 +283,9 @@ singleNumericVariableDf = function(baseRow,
   # Alter the modifiable variable and non-constant variable columns
   for (col in names(baseRow)) {
     baseValue <- baseRow[[col]]
-    
+
     # Set modifiable variable values
-    if (col  == modifiableVariable) {
+    if (col == modifiableVariable) {
       # Get endpoints of the interval from which the modifiable variable will 
       # be sampled 
       sd <- standardDeviations[[col]]
@@ -372,14 +372,14 @@ modifiableFactors1Row = function(baseRow,
     # Compute alternate values and probabilities for numeric variables
     if (is.numeric(baseRow[[col]])) {
       
-      globalMinimum <- maxima[[col]]
-      globalMaximum <- minima[[col]]
+      globalMinimum <- minima[[col]]
+      globalMaximum <- maxima[[col]]
       
       # Build a dataframe using points evenly spread around the current value
       # of col
       balancedDf <- singleNumericVariableDf(
         baseRow = baseRow,
-        modifiableVariable = modifiableVariables, 
+        modifiableVariable = col, 
         standardDeviations = standardDeviations, 
         nonConstantVariables = nonConstantVariables,
         skew = NULL,
