@@ -5,7 +5,7 @@ library(dplyr)
 library(RODBC)
 source('common-sql-queries.R')
 source('common-profile-cleaner.R')
-source('.credentials.R')
+source('./.credentials.R')
 
 # Profile vs a single poll question id
 singlePollVariance <- function(df1, catVarList, measureColName, questionID) {
@@ -31,7 +31,8 @@ res <- singlePollVariance(df1, catVars, 'pollAnswer', 343)
 
 
 # setup azure connection from sourced file
-conn <- odbcDriverConnect(connection = credentials()
+foo = credentials()
+conn <- odbcDriverConnect(connection = foo)
 
 # Get data
 query <- pollQuestionSQL(309)
