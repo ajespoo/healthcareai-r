@@ -52,7 +52,7 @@ res <- singlePollVariance(dfClean, 'FavoriteAgeDSC', 343)
 
 
 names(dfClean)
-lapply(dfClean, class)
+lapply(dfClean, levels)
 dfClean$FavoriteAgeDSC
 
 

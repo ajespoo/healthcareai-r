@@ -15,6 +15,18 @@ ageCleaner <- function(ages) {
 	return(cleanAges)
 }
 
+dashCleaner <- function(df) {
+	for (num in 1:ncol(df)) { 
+		options <- levels(df[,num])
+		newLevels <- c()
+		for (o in options) {
+			o <- gsub('-', '_', o)
+			newLevels <- append(newLevels, o)
+		}
+		levels(df[,num]) <- newLevels
+	}
+	return(df)
+}
 
 cleanProfiles <- function(df){
 
@@ -26,7 +38,9 @@ cleanProfiles <- function(df){
 		)
 
 	for (column in columnsToRemove){
-		df[[column]] <- as.character(df[[column]])
+		if (!(is.null(df[[column]]))) {
+			df[[column]] <- as.character(df[[column]])
+		}
 	}
 
 	# healthcare experience
@@ -144,17 +158,9 @@ cleanProfiles <- function(df){
 
 	# 25 is fine
 
-	# There are -'s in the levels. That breaks the variation function.
-	for (num in 1:ncol(df)) { 
-	print(levels(df[,num]))
-	options <- levels(df[,num])
-	newLevels <- c()
-	for (o in options) {
-		o <- gsub('-', '_', o)
-		newLevels <- append(newLevels, o)
-	}
-	levels(df[,num]) <- newLevels
-}
+	df <- dashCleaner(df)
 
 	return(df)
 }
+
+
