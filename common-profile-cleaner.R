@@ -16,6 +16,7 @@ ageCleaner <- function(ages) {
 }
 
 dashCleaner <- function(df) {
+	# cleaning out dashes which are used in the variance hack
 	for (num in 1:ncol(df)) { 
 		options <- levels(df[,num])
 		newLevels <- c()
@@ -42,6 +43,12 @@ cleanProfiles <- function(df){
 			df[[column]] <- as.character(df[[column]])
 		}
 	}
+
+	# delete problem columns
+	df$QuestionID <- NULL
+	df$QuestionDSC <- NULL
+	df$AnswerDSC <- NULL
+	df$AnswerOrderNBR <- NULL
 
 	# healthcare experience
 	df[,4] <- factor(df[,4], levels=c(
