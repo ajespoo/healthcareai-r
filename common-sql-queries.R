@@ -8,6 +8,7 @@ pollQuestionSQL <- function(questionID) {
 		,sr.QuestionDisplay AS QuestionDSC
 		,sr.AnswerDisplay AS AnswerDSC
 		,sr.AnswerValue AS AnswerNBR
+		,sr.OrderNumber AS AnswerOrderNBR
 	FROM [Eventalytics_db].[dbo].Sessions s
 	INNER JOIN [Eventalytics_db].[dbo].[SessionSurveys] ss
 		ON s.ID = ss.SessionID
@@ -125,6 +126,7 @@ pollQuestionSQL <- function(questionID) {
 		,s1.QuestionDSC
 		,s1.AnswerDSC
 		,s1.AnswerNBR
+		,s1.AnswerOrderNBR
 	FROM Step2CTE s2
 	LEFT OUTER JOIN Step1CTE s1
 		ON s2.UserID = s1.UserID")

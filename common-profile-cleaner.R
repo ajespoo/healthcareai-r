@@ -17,6 +17,18 @@ ageCleaner <- function(ages) {
 
 
 cleanProfiles <- function(df){
+
+	columnsToRemove <- c(
+		"UserID",
+		"UserFullNM",
+		"QuestionDSC",
+		"AnswerDSC"
+		)
+
+	for (column in columnsToRemove){
+		df[[column]] <- as.character(df[[column]])
+	}
+
 	# healthcare experience
 	df[,4] <- factor(df[,4], levels=c(
 		"Not applicable",
