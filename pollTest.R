@@ -50,7 +50,6 @@ dfClean$FavoriteAgeDSC
 res <- singlePollVariance(dfClean, 'FavoriteAgeDSC', 343)
 
 
-getCategoricalVariables <- 
 
 names(dfClean)
 lapply(dfClean, class)

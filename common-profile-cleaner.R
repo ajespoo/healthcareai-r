@@ -144,5 +144,17 @@ cleanProfiles <- function(df){
 
 	# 25 is fine
 
+	# There are -'s in the levels. That breaks the variation function.
+	for (num in 1:ncol(df)) { 
+	print(levels(df[,num]))
+	options <- levels(df[,num])
+	newLevels <- c()
+	for (o in options) {
+		o <- gsub('-', '_', o)
+		newLevels <- append(newLevels, o)
+	}
+	levels(df[,num]) <- newLevels
+}
+
 	return(df)
 }
