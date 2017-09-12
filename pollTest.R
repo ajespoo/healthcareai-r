@@ -39,11 +39,13 @@ tempCredentials = credentials()
 conn <- odbcDriverConnect(connection = tempCredentials)
 
 # Get data
-query <- pollQuestionSQL(309)
+questionID = 309
+
+query <- pollQuestionSQL(questionID)
 df <- sqlQuery(conn, query)
 head(df)
 
-# Clean the thing
+# Clean the profile data
 dfClean <- cleanProfiles(df)
 dfClean$FavoriteAgeDSC
 names(dfClean)
@@ -52,7 +54,7 @@ names(dfClean)
 dfClean$AnswerNBR <- sample(1:5, nrow(dfClean), replace=TRUE)
 
 # Get variance
-variances <- singlePollVariance(dfClean, 'AnswerNBR', 343)
+variances <- singlePollVariance(dfClean, 'AnswerNBR', questionID)
 
 # lapply(dfClean, class)
 # names(dfClean)
