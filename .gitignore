@@ -1,3 +1,5 @@
+# has creds
+.credentials.R
 .idea
 # History files
 .Rhistory
