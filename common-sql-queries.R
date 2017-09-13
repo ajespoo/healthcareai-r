@@ -19,7 +19,7 @@ pollQuestionSQL <- function(questionID) {
 		AND s.SessionCapacity = 1100
 		AND sr.EventID = 29
 		AND sr.QuestionID IN (",questionID,") --this is the QuestionID that we'd want to parameterize
-		AND ISNUMERIC(sr.[AnswerValueNumber]) = 1
+		--AND ISNUMERIC(sr.[AnswerValueNumber]) = 1
 		)
 
 	,Step2CTE AS (

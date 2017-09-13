@@ -75,31 +75,10 @@ singlePollCategorical <- function(df1, measureColName, questionID) {
   return(as.data.frame(out))
 }
 
-# # # setup azure connection from sourced file
-# tempCredentials = credentials()
-# conn <- odbcDriverConnect(connection = tempCredentials)
-# 
-# # # Get data
-# questionID = 977
-# query <- pollQuestionSQL(questionID)
-# df <- sqlQuery(conn, query)
-# head(df)
-# 
-# # # Clean the profile data
-# dfClean <- cleanProfiles(df)
-# # names(dfClean)
-# length(dfClean$UserID)
 
-# fake up some data
-# dfClean$AnswerNBR <- sample(1:5, nrow(dfClean), replace=TRUE)
-
-# Get variance
-# variances <- singlePollVariance(dfClean, 'AnswerNBR', questionID)
-
-
-# findVariance <- function(questionID){
+findVariance <- function(questionID){
 	# setup azure connection from sourced file
-	questionID = 977
+	# questionID = 980
 	tempCredentials = credentials()
 	conn <- odbcDriverConnect(connection = tempCredentials)
 
@@ -111,25 +90,29 @@ singlePollCategorical <- function(df1, measureColName, questionID) {
 	# Clean the profile data
 	dfClean <- cleanProfiles(df)
 
-	print(sum(is.na(dfClean$AnswerNBR))) # Count of missing answers
-	print(paste('missing rows percentage:', sum(is.na(dfClean$AnswerNBR)) / nrow(dfClean)))  # Proportion of missing answers
+	print(paste('number of missing rows:',sum(is.na(dfClean$AnswerNBR)))) # Count of missing answers
+	print(paste('missing rows ratio:', sum(is.na(dfClean$AnswerNBR)) / nrow(dfClean)))  # Proportion of missing answers
 	
-	# Ceal
+	# Clean the data (and filter out anyone who hasn't answered the questions - NULLS)
 	dfClean <- dfClean[!is.na(dfClean$AnswerNBR), ]
-
-	# names(dfClean)
-	print(length(dfClean$UserID))
+	print(paste('Found',length(dfClean$UserID), 'answers'))
 
 	# fake up some data
 	# dfClean$AnswerNBR <- sample(1:5, nrow(dfClean), replace=TRUE)
 
-	# Get variance
 	# png("../../Desktop/tmp.png", width = 400000, height = 40000)
-	variances <- singlePollVariance(dfClean, 'AnswerNBR', questionID)
-	str(variances)
+
+	# Get variance for either ordinal or categorical
+	if (is.numeric(dfClean$AnswerNBR)){
+		variances <- singlePollVariance(dfClean, 'AnswerNBR', questionID)
+		
+	} else {
+		variances <- singlePollCategorical(dfClean, 'AnswerNBR', questionID)
+	}
+
   # dev.off()
-# 	return(variances)
-# }
+	return(variances)
+}
 
 # Run this bit here
 q = 978
