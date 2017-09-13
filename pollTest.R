@@ -40,41 +40,40 @@ singlePollCategorical <- function(df1, measureColName, questionID) {
   
   responseCol <- grep(measureColName, names(df1)) 
   profileQs <- profileQs[!profileQs %in% responseCol]
-  
-  map_df(profileQs, function(Q) {
-  
-    answers <- as.character(unique(df1[[Q]]))
-    answers <- answers[!is.na(answers)]
-    # Get all the pairs of answers, then remove duplicates
-    pairs <- expand.grid(answer1 = answers, answer2 = answers, stringsAsFactors = FALSE)
-    pairs <- pairs[pairs$answer1 < pairs$answer2, ]
-    
-    
-    map_df(seq_len(nrow(pairs)), function(i) {
+  out <- 
+    map_df(profileQs, function(Q) {
       
-      message(i, " - ", Q)
+      answers <- as.character(unique(df1[[Q]]))
+      answers <- answers[!is.na(answers)]
+      # Get all the pairs of answers, then remove duplicates
+      pairs <- expand.grid(answer1 = answers, answer2 = answers, stringsAsFactors = FALSE)
+      pairs <- pairs[pairs$answer1 < pairs$answer2, ]
       
-      fTab <- table(df1[df1[[Q]] %in% pairs[i, ], c(Q, responseCol)])
-      # Remove rows not in the two answers we're interested in
-      fTab <- fTab[rowSums(fTab) > 1, ]
-      if (nrow(fTab) > 2)
-        stop("There should only be two answers here, but there are more.")
       
-      # Run chi-squared
-      chiSq <- suppressWarnings(chisq.test(fTab))
-      
-      data.frame(
-        Groups = paste(pairs[i, ], collapse = "-"),
-        `Mean Difference` = 0,
-        `Adjusted p-value` = chiSq$p.value,
-        profileQuestionNumber = names(df1)[Q],
-        pollQuestionID = questionID
-      )
-      
-    })
-  })
+      map_df(seq_len(nrow(pairs)), function(i) {
+        
+        fTab <- table(df1[df1[[Q]] %in% pairs[i, ], c(Q, responseCol)])
+        # Remove rows not in the two answers we're interested in
+        fTab <- fTab[rowSums(fTab) > 1, ]
+        if (nrow(fTab) > 2)
+          stop("There should only be two answers here, but there are more.")
+        
+        # Run chi-squared
+        chiSq <- suppressWarnings(chisq.test(fTab))
+        
+        data_frame(
+          Groups = paste(pairs[i, ], collapse = "-"),
+          "Mean Difference" = 0,
+          "Adjusted p-value" = chiSq$p.value,
+          profileQuestionNumber = names(df1)[Q],
+          pollQuestionID = questionID
+        ) 
+        
+      })
+    }) 
+  out <- arrange(out, `Adjusted p-value`)
+  return(as.data.frame(out))
 }
-singlePollCategorical(dfClean, "AnswerNBR", 977)
 
 # # # setup azure connection from sourced file
 # tempCredentials = credentials()
