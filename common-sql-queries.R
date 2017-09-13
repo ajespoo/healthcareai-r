@@ -15,10 +15,11 @@ pollQuestionSQL <- function(questionID) {
 	INNER JOIN [Eventalytics_db].[dbo].[SurveyResults] sr
 		ON ss.SessionID = sr.SessionID
 	WHERE 1=1
+		AND sr.AnswerValue IS NOT NULL
 		AND s.SessionCapacity = 1100
 		AND sr.EventID = 29
 		AND sr.QuestionID IN (",questionID,") --this is the QuestionID that we'd want to parameterize
-		AND ISNUMERIC(sr.[AnswerValue]) = 1
+		AND ISNUMERIC(sr.[AnswerValueNumber]) = 1
 		)
 
 	,Step2CTE AS (
@@ -60,6 +61,7 @@ pollQuestionSQL <- function(questionID) {
 		INNER JOIN Eventalytics_db.dbo.UserInformations ui
 			ON sr.UserID = ui.ID
 		WHERE sr.SurveyID = 318 --HAS 2017 profile survey
+		AND sr.AnswerValue IS NOT NULL
 		) p
 		PIVOT
 		(
@@ -129,7 +131,9 @@ pollQuestionSQL <- function(questionID) {
 		,s1.AnswerOrderNBR
 	FROM Step2CTE s2
 	LEFT OUTER JOIN Step1CTE s1
-		ON s2.UserID = s1.UserID")
+		ON s2.UserID = s1.UserID
+	WHERE AnswerNBR IS NOT NULL
+")
 
 	return(query)
 }

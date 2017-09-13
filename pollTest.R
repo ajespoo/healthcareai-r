@@ -53,11 +53,12 @@ singlePollVariance <- function(df1, measureColName, questionID) {
 # dfClean$AnswerNBR <- sample(1:5, nrow(dfClean), replace=TRUE)
 
 # Get variance
-variances <- singlePollVariance(dfClean, 'AnswerNBR', questionID)
+# variances <- singlePollVariance(dfClean, 'AnswerNBR', questionID)
 
 
-findVariance <- function(questionID){
+# findVariance <- function(questionID){
 	# setup azure connection from sourced file
+	questionID = 980
 	tempCredentials = credentials()
 	conn <- odbcDriverConnect(connection = tempCredentials)
 
@@ -68,6 +69,13 @@ findVariance <- function(questionID){
 
 	# Clean the profile data
 	dfClean <- cleanProfiles(df)
+
+	print(sum(is.na(dfClean$AnswerNBR))) # Count of missing answers
+	print(paste('missing rows percentage:', sum(is.na(dfClean$AnswerNBR)) / nrow(dfClean)))  # Proportion of missing answers
+	
+	# Ceal
+	dfClean <- dfClean[!is.na(dfClean$AnswerNBR), ]
+
 	# names(dfClean)
 	print(length(dfClean$UserID))
 
@@ -77,13 +85,14 @@ findVariance <- function(questionID){
 	# Get variance
 	variances <- singlePollVariance(dfClean, 'AnswerNBR', questionID)
 
-	return(variances)
-}
+# 	return(variances)
+# }
 
 # Run this bit here
-q = 977
+q = 978
 results <- findVariance(q)
 View(results)
+
 
 # lapply(dfClean, class)
 # names(dfClean)
