@@ -32,19 +32,61 @@ singlePollVariance <- function(df1, measureColName, questionID) {
 	return(glued)
 }
 
+singlePollCategorical <- function(df1, measureColName, questionID) {
+  
+  require(tidyverse)
+  # ID profile question column numbers (to loop over)
+  profileQs <- which(!names(df1) %in% c("UserID", "UserFullNM", "FavoriteAgeDSC"))
+  
+  responseCol <- grep(measureColName, names(df1)) 
+  profileQs <- profileQs[!profileQs %in% responseCol]
+  
+  map_df(profileQs, function(Q) {
+  
+    answers <- as.character(unique(df1[[Q]]))
+    answers <- answers[!is.na(answers)]
+    # Get all the pairs of answers, then remove duplicates
+    pairs <- expand.grid(answer1 = answers, answer2 = answers, stringsAsFactors = FALSE)
+    pairs <- pairs[pairs$answer1 < pairs$answer2, ]
+    
+    
+    map_df(seq_len(nrow(pairs)), function(i) {
+      
+      message(i, " - ", Q)
+      
+      fTab <- table(df1[df1[[Q]] %in% pairs[i, ], c(Q, responseCol)])
+      # Remove rows not in the two answers we're interested in
+      fTab <- fTab[rowSums(fTab) > 1, ]
+      if (nrow(fTab) > 2)
+        stop("There should only be two answers here, but there are more.")
+      
+      # Run chi-squared
+      chiSq <- suppressWarnings(chisq.test(fTab))
+      
+      data.frame(
+        Groups = paste(pairs[i, ], collapse = "-"),
+        `Mean Difference` = 0,
+        `Adjusted p-value` = chiSq$p.value,
+        profileQuestionNumber = names(df1)[Q],
+        pollQuestionID = questionID
+      )
+      
+    })
+  })
+}
+singlePollCategorical(dfClean, "AnswerNBR", 977)
 
-
-# # setup azure connection from sourced file
+# # # setup azure connection from sourced file
 # tempCredentials = credentials()
 # conn <- odbcDriverConnect(connection = tempCredentials)
-
-# # Get data
+# 
+# # # Get data
 # questionID = 977
 # query <- pollQuestionSQL(questionID)
 # df <- sqlQuery(conn, query)
-# # head(df)
-
-# # Clean the profile data
+# head(df)
+# 
+# # # Clean the profile data
 # dfClean <- cleanProfiles(df)
 # # names(dfClean)
 # length(dfClean$UserID)
@@ -58,7 +100,7 @@ singlePollVariance <- function(df1, measureColName, questionID) {
 
 # findVariance <- function(questionID){
 	# setup azure connection from sourced file
-	questionID = 980
+	questionID = 977
 	tempCredentials = credentials()
 	conn <- odbcDriverConnect(connection = tempCredentials)
 
@@ -83,8 +125,10 @@ singlePollVariance <- function(df1, measureColName, questionID) {
 	# dfClean$AnswerNBR <- sample(1:5, nrow(dfClean), replace=TRUE)
 
 	# Get variance
+	# png("../../Desktop/tmp.png", width = 400000, height = 40000)
 	variances <- singlePollVariance(dfClean, 'AnswerNBR', questionID)
-
+	str(variances)
+  # dev.off()
 # 	return(variances)
 # }
 
